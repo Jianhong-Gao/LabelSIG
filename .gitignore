@@ -4,5 +4,5 @@
 # 忽略所有 node_modules 文件夹
 test/
 tmp/
-external/CAAP2008X/
+external/
 
