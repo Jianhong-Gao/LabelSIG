@@ -4,9 +4,6 @@
 # 忽略所有 node_modules 文件夹
 test/
 tmp/
+external/
 
-# 忽略特定文件
-secret.txt
 
-# 忽略特定文件夹
-/path/to/folder/
