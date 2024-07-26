@@ -25,4 +25,4 @@ del sys
 
 # from labelme.label_file import LabelFile
 # from labelme import testing
-# from labelme import utils
+from labelsig import utils

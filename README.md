@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="resource/WindowIcon.png"><br/>LabelSIG
+  <img src="labelsig/resource/WindowIcon.png"><br/>LabelSIG
 </h1>
 
 
