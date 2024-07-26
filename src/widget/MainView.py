@@ -596,7 +596,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def init_ui_elements(self):
         self.reconfigure_table_files()
-        self.setWindowTitle("CabrSIG")
+        self.setWindowTitle("LabelSIG")
         self.statusBar().showMessage(f"Version: {self.version}")
         self.root_project = get_parent_directory(levels_up=2)
         self.path_dict = self.get_temp_path()
@@ -801,7 +801,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             return  # 用户取消了选择
 
         current_datetime = datetime.now().strftime('%y%m%d%H%M')
-        new_folder_name = f'CabrSIG_{current_datetime}_data'
+        new_folder_name = f'LabelSIG_{current_datetime}_data'
         new_folder_path = os.path.join(destination_dir, new_folder_name)
         os.makedirs(new_folder_path, exist_ok=True)  # 创建新文件夹
 

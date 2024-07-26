@@ -221,7 +221,7 @@ class Ui_main(object):
 
     def retranslateUi(self, main):
         _translate = QtCore.QCoreApplication.translate
-        main.setWindowTitle(_translate("main", "CabrSIG"))
+        main.setWindowTitle(_translate("main", "LabelSIG"))
         self.label_located.setText(_translate("main", "WAIT FOR LOADING"))
         self.label_name_cfg_4.setText(_translate("main", "Channel"))
         self.label_name_cfg_5.setText(_translate("main", "Comtrade Files"))
