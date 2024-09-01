@@ -20,7 +20,11 @@ class Ui_MainWindow(object):
         self.centralwidget.setStyleSheet("background-color: rgb(220, 233, 243);")
         self.centralwidget.setObjectName("centralwidget")
         self.button_load_folder = QtWidgets.QPushButton(self.centralwidget)
-        self.button_load_folder.setGeometry(QtCore.QRect(10, 30, 200, 100))
+        self.button_load_folder.setGeometry(QtCore.QRect(10, 14, 200, 140))
+        self.button_load_folder.setStyleSheet("color: rgb(255, 255, 255);\n"
+"font: 25pt \'Bahnschrift Condensed\';\n"
+"background-color: rgb(48, 105, 176);\n"
+"border-radius: 16px;")
         self.button_load_folder.setObjectName("button_load_folder")
         self.table_files = QtWidgets.QTableWidget(self.centralwidget)
         self.table_files.setGeometry(QtCore.QRect(10, 170, 1761, 641))
@@ -29,35 +33,67 @@ class Ui_MainWindow(object):
         self.table_files.setColumnCount(0)
         self.table_files.setRowCount(0)
         self.button_output = QtWidgets.QPushButton(self.centralwidget)
-        self.button_output.setGeometry(QtCore.QRect(1640, 90, 130, 65))
+        self.button_output.setGeometry(QtCore.QRect(1640, 89, 130, 65))
+        self.button_output.setStyleSheet("color: rgb(255, 255, 255);\n"
+"font: 25pt \'Bahnschrift Condensed\';\n"
+"background-color: rgb(48, 105, 176);\n"
+"border-radius: 16px;")
         self.button_output.setObjectName("button_output")
         self.label_info = QtWidgets.QLabel(self.centralwidget)
-        self.label_info.setGeometry(QtCore.QRect(220, 40, 881, 71))
+        self.label_info.setGeometry(QtCore.QRect(220, 14, 641, 140))
+        self.label_info.setStyleSheet("font-family: \'Bahnschrift Condensed\';\n"
+"font-size: 25pt;\n"
+"background-color: rgb(255, 255, 255);\n"
+"border: 2px solid rgb(48, 105, 176);\n"
+"border-radius: 15px;\n"
+"padding: 5px;")
         self.label_info.setObjectName("label_info")
-        self.button_refresh = QtWidgets.QPushButton(self.centralwidget)
-        self.button_refresh.setGeometry(QtCore.QRect(1640, 10, 130, 65))
-        self.button_refresh.setObjectName("button_refresh")
         self.button_delete = QtWidgets.QPushButton(self.centralwidget)
-        self.button_delete.setGeometry(QtCore.QRect(1480, 90, 130, 65))
+        self.button_delete.setGeometry(QtCore.QRect(1500, 89, 130, 65))
+        self.button_delete.setStyleSheet("color: rgb(255, 255, 255);\n"
+"font: 25pt \'Bahnschrift Condensed\';\n"
+"background-color: rgb(48, 105, 176);\n"
+"border-radius: 16px;")
         self.button_delete.setObjectName("button_delete")
-        self.button_visualize = QtWidgets.QPushButton(self.centralwidget)
-        self.button_visualize.setGeometry(QtCore.QRect(1480, 10, 130, 65))
-        self.button_visualize.setObjectName("button_visualize")
         self.button_help = QtWidgets.QPushButton(self.centralwidget)
-        self.button_help.setGeometry(QtCore.QRect(1320, 10, 130, 65))
+        self.button_help.setGeometry(QtCore.QRect(1500, 14, 130, 65))
+        self.button_help.setStyleSheet("color: rgb(255, 255, 255);\n"
+"font: 25pt \'Bahnschrift Condensed\';\n"
+"background-color: rgb(48, 105, 176);\n"
+"border-radius: 16px;")
         self.button_help.setObjectName("button_help")
         self.button_clear_cache = QtWidgets.QPushButton(self.centralwidget)
-        self.button_clear_cache.setGeometry(QtCore.QRect(1320, 90, 130, 65))
+        self.button_clear_cache.setGeometry(QtCore.QRect(1640, 14, 130, 65))
+        self.button_clear_cache.setStyleSheet("color: rgb(255, 255, 255);\n"
+"font: 25pt \'Bahnschrift Condensed\';\n"
+"background-color: rgb(48, 105, 176);\n"
+"border-radius: 16px;")
         self.button_clear_cache.setObjectName("button_clear_cache")
-        self.button_segmentation = QtWidgets.QPushButton(self.centralwidget)
-        self.button_segmentation.setGeometry(QtCore.QRect(1110, 10, 200, 65))
-        self.button_segmentation.setObjectName("button_segmentation")
-        self.button_location = QtWidgets.QPushButton(self.centralwidget)
-        self.button_location.setGeometry(QtCore.QRect(1110, 90, 200, 65))
-        self.button_location.setObjectName("button_location")
+        self.button_fault_detection = QtWidgets.QPushButton(self.centralwidget)
+        self.button_fault_detection.setGeometry(QtCore.QRect(870, 14, 200, 140))
+        self.button_fault_detection.setStyleSheet("color: rgb(255, 255, 255);\n"
+"font: 25pt \'Bahnschrift Condensed\';\n"
+"background-color: rgb(48, 105, 176);\n"
+"border-radius: 16px;")
+        self.button_fault_detection.setObjectName("button_fault_detection")
+        self.button_fault_localization = QtWidgets.QPushButton(self.centralwidget)
+        self.button_fault_localization.setGeometry(QtCore.QRect(1290, 14, 200, 140))
+        self.button_fault_localization.setToolTip("")
+        self.button_fault_localization.setStyleSheet("color: rgb(255, 255, 255);\n"
+"font: 25pt \'Bahnschrift Condensed\';\n"
+"background-color: rgb(48, 105, 176);\n"
+"border-radius: 16px;")
+        self.button_fault_localization.setObjectName("button_fault_localization")
+        self.button_fault_identification = QtWidgets.QPushButton(self.centralwidget)
+        self.button_fault_identification.setGeometry(QtCore.QRect(1080, 14, 200, 140))
+        self.button_fault_identification.setStyleSheet("color: rgb(255, 255, 255);\n"
+"font: 25pt \'Bahnschrift Condensed\';\n"
+"background-color: rgb(48, 105, 176);\n"
+"border-radius: 16px;")
+        self.button_fault_identification.setObjectName("button_fault_identification")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1782, 26))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1782, 23))
         self.menubar.setStyleSheet("background-color: rgb(220, 233, 243);")
         self.menubar.setObjectName("menubar")
         MainWindow.setMenuBar(self.menubar)
@@ -75,10 +111,12 @@ class Ui_MainWindow(object):
         self.button_load_folder.setText(_translate("MainWindow", "Load Folder"))
         self.button_output.setText(_translate("MainWindow", "Output"))
         self.label_info.setText(_translate("MainWindow", "Info"))
-        self.button_refresh.setText(_translate("MainWindow", "Refresh"))
         self.button_delete.setText(_translate("MainWindow", "Delete"))
-        self.button_visualize.setText(_translate("MainWindow", "Visualize"))
         self.button_help.setText(_translate("MainWindow", "Help"))
         self.button_clear_cache.setText(_translate("MainWindow", "Clear"))
-        self.button_segmentation.setText(_translate("MainWindow", "Segmentation"))
-        self.button_location.setText(_translate("MainWindow", "Location"))
+        self.button_fault_detection.setText(_translate("MainWindow", "Fault\n"
+"Detection"))
+        self.button_fault_localization.setText(_translate("MainWindow", "Fault\n"
+"Localization"))
+        self.button_fault_identification.setText(_translate("MainWindow", "Fault\n"
+"Identification"))

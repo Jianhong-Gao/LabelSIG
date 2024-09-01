@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'ui_segmentation_view.ui'
+# Form implementation generated from reading ui file 'ui_fault_identification_view.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.9
 #
@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_main(object):
     def setupUi(self, main):
         main.setObjectName("main")
-        main.resize(1693, 716)
+        main.resize(1708, 714)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -25,14 +25,14 @@ class Ui_main(object):
         self.centralwidget = QtWidgets.QWidget(main)
         self.centralwidget.setStyleSheet("")
         self.centralwidget.setObjectName("centralwidget")
-        self.label_located = QtWidgets.QLabel(self.centralwidget)
-        self.label_located.setGeometry(QtCore.QRect(380, 11, 1300, 601))
-        self.label_located.setAutoFillBackground(False)
-        self.label_located.setStyleSheet("background-color: rgb(255, 255, 255);\n"
+        self.label_container = QtWidgets.QLabel(self.centralwidget)
+        self.label_container.setGeometry(QtCore.QRect(380, 11, 1321, 601))
+        self.label_container.setAutoFillBackground(False)
+        self.label_container.setStyleSheet("background-color: rgb(255, 255, 255);\n"
 "color: rgb(190, 190, 190);\n"
 "font: 48pt \"Bahnschrift Condensed\";")
-        self.label_located.setAlignment(QtCore.Qt.AlignCenter)
-        self.label_located.setObjectName("label_located")
+        self.label_container.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_container.setObjectName("label_container")
         self.widget_3 = QtWidgets.QWidget(self.centralwidget)
         self.widget_3.setGeometry(QtCore.QRect(10, 450, 351, 241))
         self.widget_3.setStyleSheet("background-color: rgb(255, 255, 255);")
@@ -53,17 +53,17 @@ class Ui_main(object):
         self.label_name_cfg_4.setAlignment(QtCore.Qt.AlignCenter)
         self.label_name_cfg_4.setObjectName("label_name_cfg_4")
         self.gridLayout_6.addWidget(self.label_name_cfg_4, 0, 0, 1, 1)
-        self.lw_channel = QtWidgets.QListWidget(self.layoutWidget)
+        self.channel_list_widget = QtWidgets.QListWidget(self.layoutWidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(14)
-        sizePolicy.setHeightForWidth(self.lw_channel.sizePolicy().hasHeightForWidth())
-        self.lw_channel.setSizePolicy(sizePolicy)
-        self.lw_channel.setStyleSheet("QListWidget {border:none;};\n"
+        sizePolicy.setHeightForWidth(self.channel_list_widget.sizePolicy().hasHeightForWidth())
+        self.channel_list_widget.setSizePolicy(sizePolicy)
+        self.channel_list_widget.setStyleSheet("QListWidget {border:none;};\n"
 "font: 16pt \'Bahnschrift Condensed\';\n"
 "    ")
-        self.lw_channel.setObjectName("lw_channel")
-        self.gridLayout_6.addWidget(self.lw_channel, 1, 0, 1, 1)
+        self.channel_list_widget.setObjectName("channel_list_widget")
+        self.gridLayout_6.addWidget(self.channel_list_widget, 1, 0, 1, 1)
         self.widget_4 = QtWidgets.QWidget(self.centralwidget)
         self.widget_4.setGeometry(QtCore.QRect(10, 190, 351, 251))
         self.widget_4.setStyleSheet("background-color: rgb(255, 255, 255);")
@@ -84,42 +84,42 @@ class Ui_main(object):
         self.label_name_cfg_5.setAlignment(QtCore.Qt.AlignCenter)
         self.label_name_cfg_5.setObjectName("label_name_cfg_5")
         self.gridLayout_7.addWidget(self.label_name_cfg_5, 0, 0, 1, 1)
-        self.lw_comtrade = QtWidgets.QListWidget(self.layoutWidget1)
+        self.comtrade_list_widget = QtWidgets.QListWidget(self.layoutWidget1)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(18)
-        sizePolicy.setHeightForWidth(self.lw_comtrade.sizePolicy().hasHeightForWidth())
-        self.lw_comtrade.setSizePolicy(sizePolicy)
-        self.lw_comtrade.setStyleSheet("QListWidget {border:none;};\n"
+        sizePolicy.setHeightForWidth(self.comtrade_list_widget.sizePolicy().hasHeightForWidth())
+        self.comtrade_list_widget.setSizePolicy(sizePolicy)
+        self.comtrade_list_widget.setStyleSheet("QListWidget {border:none;};\n"
 "font: 20pt \'Bahnschrift Condensed\';\n"
 "    ")
-        self.lw_comtrade.setObjectName("lw_comtrade")
-        self.gridLayout_7.addWidget(self.lw_comtrade, 1, 0, 1, 2)
+        self.comtrade_list_widget.setObjectName("comtrade_list_widget")
+        self.gridLayout_7.addWidget(self.comtrade_list_widget, 1, 0, 1, 2)
         self.layoutWidget2 = QtWidgets.QWidget(self.centralwidget)
-        self.layoutWidget2.setGeometry(QtCore.QRect(380, 620, 1301, 71))
+        self.layoutWidget2.setGeometry(QtCore.QRect(380, 620, 1321, 71))
         self.layoutWidget2.setObjectName("layoutWidget2")
         self.gridLayout = QtWidgets.QGridLayout(self.layoutWidget2)
         self.gridLayout.setSizeConstraint(QtWidgets.QLayout.SetNoConstraint)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setObjectName("gridLayout")
-        self.button_scale_up = QtWidgets.QPushButton(self.layoutWidget2)
+        self.button_zoom_in = QtWidgets.QPushButton(self.layoutWidget2)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.button_scale_up.sizePolicy().hasHeightForWidth())
-        self.button_scale_up.setSizePolicy(sizePolicy)
+        sizePolicy.setHeightForWidth(self.button_zoom_in.sizePolicy().hasHeightForWidth())
+        self.button_zoom_in.setSizePolicy(sizePolicy)
         font = QtGui.QFont()
         font.setFamily("Bahnschrift Condensed")
         font.setPointSize(25)
         font.setBold(False)
         font.setItalic(False)
         font.setWeight(50)
-        self.button_scale_up.setFont(font)
-        self.button_scale_up.setStyleSheet("color: rgb(0, 0, 0);\n"
+        self.button_zoom_in.setFont(font)
+        self.button_zoom_in.setStyleSheet("color: rgb(0, 0, 0);\n"
 "background-color: rgb(169, 169, 197);border-radius: 16px;\n"
 "font: 25pt \"Bahnschrift Condensed\";")
-        self.button_scale_up.setObjectName("button_scale_up")
-        self.gridLayout.addWidget(self.button_scale_up, 0, 4, 1, 1)
+        self.button_zoom_in.setObjectName("button_zoom_in")
+        self.gridLayout.addWidget(self.button_zoom_in, 0, 4, 1, 1)
         self.button_confirm = QtWidgets.QPushButton(self.layoutWidget2)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -159,17 +159,17 @@ class Ui_main(object):
         self.gridLayout.addItem(spacerItem1, 0, 7, 1, 1)
         spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.gridLayout.addItem(spacerItem2, 0, 3, 1, 1)
-        self.button_scale_down = QtWidgets.QPushButton(self.layoutWidget2)
+        self.button_zoom_out = QtWidgets.QPushButton(self.layoutWidget2)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.button_scale_down.sizePolicy().hasHeightForWidth())
-        self.button_scale_down.setSizePolicy(sizePolicy)
-        self.button_scale_down.setStyleSheet("color: rgb(0, 0, 0);\n"
+        sizePolicy.setHeightForWidth(self.button_zoom_out.sizePolicy().hasHeightForWidth())
+        self.button_zoom_out.setSizePolicy(sizePolicy)
+        self.button_zoom_out.setStyleSheet("color: rgb(0, 0, 0);\n"
 "background-color: rgb(169, 169, 197);border-radius: 16px;\n"
 "font: 25pt \"Bahnschrift Condensed\";")
-        self.button_scale_down.setObjectName("button_scale_down")
-        self.gridLayout.addWidget(self.button_scale_down, 0, 6, 1, 1)
+        self.button_zoom_out.setObjectName("button_zoom_out")
+        self.gridLayout.addWidget(self.button_zoom_out, 0, 6, 1, 1)
         spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.gridLayout.addItem(spacerItem3, 0, 5, 1, 1)
         self.gridLayout.setColumnStretch(0, 2)
@@ -203,7 +203,7 @@ class Ui_main(object):
         self.button_return.setObjectName("button_return")
         self.gridLayout_9.addWidget(self.button_return, 0, 0, 1, 1)
         self.layoutWidget.raise_()
-        self.label_located.raise_()
+        self.label_container.raise_()
         self.widget_3.raise_()
         self.widget_4.raise_()
         self.widget_6.raise_()
@@ -222,14 +222,14 @@ class Ui_main(object):
     def retranslateUi(self, main):
         _translate = QtCore.QCoreApplication.translate
         main.setWindowTitle(_translate("main", "LabelSIG"))
-        self.label_located.setText(_translate("main", "WAIT FOR LOADING"))
+        self.label_container.setText(_translate("main", "WAIT FOR LOADING"))
         self.label_name_cfg_4.setText(_translate("main", "Channel"))
         self.label_name_cfg_5.setText(_translate("main", "Comtrade Files"))
-        self.button_scale_up.setText(_translate("main", "ScaleUp"))
+        self.button_zoom_in.setText(_translate("main", "Zoom In"))
         self.button_confirm.setText(_translate("main", "Confirm"))
         self.button_annotate.setText(_translate("main", "Annotate"))
         self.button_clear.setText(_translate("main", "Clear"))
-        self.button_scale_down.setText(_translate("main", "ScaleDown"))
+        self.button_zoom_out.setText(_translate("main", "Zoom Out"))
         self.button_return.setText(_translate("main", "Return"))
         self.actionAdd.setText(_translate("main", "Edit"))
         self.actionDel.setText(_translate("main", "Del"))

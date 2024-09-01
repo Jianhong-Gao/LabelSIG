@@ -72,19 +72,24 @@ class EditLabelDialog(QDialog):
             self.label_info[i] = {"name": name, "color": color, "value": value}
         return self.label_info
 
-class MyDialog(QDialog, Ui_input_dialog):
+class LabelManagementDialog(QDialog, Ui_input_dialog):
     _startPos = None
     _endPos = None
     _isTracking = False
-    mySignal = pyqtSignal(str)
-    def __init__(self, operation = None,class_label =['标签1', '标签2', '标签3']):
-        super(MyDialog, self).__init__(operation)
+    mySignal = pyqtSignal(str,int,str)
+    def __init__(self,class_label =['标签1', '标签2', '标签3']):
+        super(LabelManagementDialog, self).__init__()
         self.setupUi(self)
-
-        self.root_labelsig=get_parent_directory(levels_up=1)
+        self.root_labelsig = get_parent_directory(levels_up=1)
+        self.path_tmp = os.path.join(self.root_labelsig, 'tmp')
+        self.path_raw = os.path.join(self.path_tmp, 'raw')
+        self.path_annotation = os.path.join(self.path_tmp, 'annotation')
+        self.path_config = os.path.join(self.root_labelsig, 'config')
         self.path_resource=os.path.join(self.root_labelsig,'resource')
-        self.operation=operation
-        self.class_label=class_label
+        self.annotation_config = read_or_create_file(self.path_config, "Annotation.config")
+        self.class_label = self.annotation_config.keys()
+
+
         self.setGeometry(155, 40, 349, 250)
         self.setWindowFlags(Qt.FramelessWindowHint)  # 无边框
         self.initUI()
@@ -103,12 +108,7 @@ class MyDialog(QDialog, Ui_input_dialog):
 
     def initUI(self):
         self.list_info=[]
-        self.root_labelsig = self.operation.root_labelsig
-        self.path_dict=self.operation.path_dict
-        self.path_raw=self.operation.path_raw
-        self.path_annotation=self.operation.path_annotation
-        self.path_tmp=self.operation.path_tmp
-        self.path_config=self.operation.path_config
+
         self.button_confirm.clicked.connect(self.confirm)
         self.button_cancel.clicked.connect(self.cancel)
         self.button_delete.clicked.connect(self.delete_label)
@@ -131,8 +131,8 @@ class MyDialog(QDialog, Ui_input_dialog):
             write_dict_to_file(dictionary=self.config_annotation, file_path=self.path_config + '/Annotation.config')
             self.update_widget()
 
-    def send_label_name(self,label_name = None):
-        self.mySignal.emit(label_name) # 发射信号
+    def send_label_name(self,semantic_category = None,value_semantic_category= None,color_semantic_category= None):
+        self.mySignal.emit(semantic_category,value_semantic_category,color_semantic_category) # 发射信号
 
     def confirm(self):
         name_label = self.lineEdit.text().strip()  # 使用strip()去除可能的首尾空格
@@ -151,8 +151,12 @@ class MyDialog(QDialog, Ui_input_dialog):
                                file_path=os.path.join(self.path_config, 'Annotation.config'))
             self.update_widget()  # 更新界面
         # 发送标签名并关闭对话框
-        self.label = name_label
-        self.send_label_name(self.label)
+        self.semantic_category = name_label
+        self.value_semantic_category = self.config_annotation[name_label]["value"]
+        self.color_semantic_category = self.config_annotation[name_label]["color"]
+
+
+        self.send_label_name(self.semantic_category,self.value_semantic_category,self.color_semantic_category)
         self.close()
 
     def cancel(self):

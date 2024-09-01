@@ -29,7 +29,7 @@
    <property name="styleSheet">
     <string notr="true"/>
    </property>
-   <widget class="QLabel" name="label_located">
+   <widget class="QLabel" name="label_container">
     <property name="geometry">
      <rect>
       <x>380</x>
@@ -95,7 +95,7 @@ font: 48pt &quot;Bahnschrift Condensed&quot;;</string>
        </widget>
       </item>
       <item row="1" column="0">
-       <widget class="QListWidget" name="lw_channel">
+       <widget class="QListWidget" name="channel_list_widget">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
@@ -154,7 +154,7 @@ font: 16pt 'Bahnschrift Condensed';
        </widget>
       </item>
       <item row="1" column="0" colspan="2">
-       <widget class="QListWidget" name="lw_comtrade">
+       <widget class="QListWidget" name="comtrade_list_widget">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
@@ -198,7 +198,7 @@ font: 20pt 'Bahnschrift Condensed';
       </spacer>
      </item>
      <item row="0" column="4">
-      <widget class="QPushButton" name="button_scale_up">
+      <widget class="QPushButton" name="button_zoom_in">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>0</horstretch>
@@ -220,7 +220,7 @@ background-color: rgb(169, 169, 197);border-radius: 16px;
 font: 25pt &quot;Bahnschrift Condensed&quot;;</string>
        </property>
        <property name="text">
-        <string>ScaleUp</string>
+        <string>Zoom In</string>
        </property>
       </widget>
      </item>
@@ -243,7 +243,7 @@ background-color: rgb(169, 169, 197);border-radius: 16px;</string>
       </widget>
      </item>
      <item row="0" column="6">
-      <widget class="QPushButton" name="button_scale_down">
+      <widget class="QPushButton" name="button_zoom_out">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>0</horstretch>
@@ -256,7 +256,7 @@ background-color: rgb(169, 169, 197);border-radius: 16px;
 font: 25pt &quot;Bahnschrift Condensed&quot;;</string>
        </property>
        <property name="text">
-        <string>ScaleDown</string>
+        <string>Zoom Out</string>
        </property>
       </widget>
      </item>
@@ -381,7 +381,7 @@ background-color: rgb(169, 169, 197);border-radius: 16px;</string>
     </widget>
    </widget>
    <zorder>layoutWidget</zorder>
-   <zorder>label_located</zorder>
+   <zorder>label_container</zorder>
    <zorder>widget_3</zorder>
    <zorder>widget_4</zorder>
    <zorder>widget_6</zorder>

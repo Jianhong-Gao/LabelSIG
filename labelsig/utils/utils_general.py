@@ -3,6 +3,60 @@ import subprocess
 import numpy as np
 import json
 
+
+def get_sorted_unique_file_basenames(directory_path):
+    """
+    Returns a sorted list of unique basenames (without extensions) for all files in the given directory.
+
+    Parameters:
+        directory_path (str): The path to the directory from which to list files.
+
+    Returns:
+        list: A sorted list containing the unique basenames of files in the directory.
+    """
+    return sorted({os.path.splitext(f)[0] for f in os.listdir(directory_path)})
+
+
+def get_annotation_ranges(comprehensive_category_seq):
+    """
+    根据 comprehensive_category_seq 返回每个标注值的范围索引列表。
+
+    Args:
+        comprehensive_category_seq (list): 包含标注值的序列。
+
+    Returns:
+        dict: 以标注值为键，范围索引 (start_idx, end_idx) 的列表为值的字典。
+    """
+    if not comprehensive_category_seq:
+        return {}
+
+    annotation_ranges = {}
+    start_idx = 0
+
+    for i in range(1, len(comprehensive_category_seq)):
+        # 当元素发生变化时，或到了序列的最后一个元素时
+        if comprehensive_category_seq[i] != comprehensive_category_seq[start_idx]:
+            # 获取当前元素的值
+            current_value = comprehensive_category_seq[start_idx]
+
+            # 保存当前元素的范围 (start_idx, i - 1)
+            if current_value not in annotation_ranges:
+                annotation_ranges[current_value] = []
+            annotation_ranges[current_value].append((start_idx, i - 1))
+
+            # 更新 start_idx 为当前元素的位置
+            start_idx = i
+
+    # 处理最后一段
+    current_value = comprehensive_category_seq[start_idx]
+    if current_value not in annotation_ranges:
+        annotation_ranges[current_value] = []
+    annotation_ranges[current_value].append((start_idx, len(comprehensive_category_seq) - 1))
+
+    return annotation_ranges
+
+
+
 def find_subsequences(lst, value=1):
     output = []
     start = None

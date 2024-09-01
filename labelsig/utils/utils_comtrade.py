@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from .Comtrade import ComtradeReader
+from labelsig.utils.Comtrade import ComtradeReader,ComtradeWriter
 
 def format_datetime(dt: datetime) -> str:
     date_str = dt.strftime('%Y%m%d_%H%M%S')
@@ -23,8 +23,10 @@ def read_comtrade(base_filepath: str)-> ComtradeReader:
     return comtrade_reader
 
 
-def get_info_comtrade(path_file_base=None):
-    comtrade_reader = read_comtrade(path_file_base)
+def get_info_comtrade(path_raw,path_ann,selected_comtrade_filename):
+    raw_data_path_without_extension = os.path.join(path_raw, selected_comtrade_filename)
+    annotation_path_without_extension = os.path.join(path_ann, selected_comtrade_filename)
+    comtrade_reader = read_comtrade(raw_data_path_without_extension)
     start_timestamp = comtrade_reader.start_timestamp
     trigger_timestamp = comtrade_reader.trigger_timestamp
     sampling_rate = comtrade_reader.sampling_rate
@@ -33,12 +35,19 @@ def get_info_comtrade(path_file_base=None):
     difference = trigger_timestamp - start_timestamp
     # 获取总秒数
     seconds_difference = difference.total_seconds()
-    trigger_moment = int(seconds_difference*sampling_rate)
+    trigger_index = int(seconds_difference*sampling_rate)+1
+    channels_info = get_channels_comtrade(path_file_base=raw_data_path_without_extension)
     info_comtrade={'start_timestamp':start_timestamp,
                    'trigger_timestamp':trigger_timestamp,
                    'sampling_rate':sampling_rate,
+                   'path_ann':path_ann,
+                   'path_raw':path_raw,
+                   'raw_data_path_without_extension':raw_data_path_without_extension,
+                   'annotation_path_without_extension':annotation_path_without_extension,
+                   'selected_comtrade_filename':selected_comtrade_filename,
                    'total_samples':total_samples,
-                   'trigger_moment':trigger_moment}
+                   'channels_info':channels_info,
+                   'trigger_index':trigger_index}
     return info_comtrade
 
 def get_index_fault_moment(comtrade_reader:ComtradeReader)->int:
@@ -144,11 +153,12 @@ def update_comtrade_trigger_time(path_raw: str,orig_name:str, trigger_timestamp:
         os.remove(dat_filepath)
     return new_name
 
-def update_comtrade(fault_trigger=None,path_raw=None,orig_name=None):
+def update_comtrade(trigger_index=None,path_raw=None,orig_name=None):
+
     comtrade_reader = read_comtrade(os.path.join(path_raw,orig_name))
     start_timestamp = comtrade_reader.start_timestamp
     sampling_rate = comtrade_reader.sampling_rate
-    time_interval = (fault_trigger) / sampling_rate
+    time_interval = (trigger_index-1) / sampling_rate
     trigger_timestamp = start_timestamp + timedelta(seconds=time_interval)
     new_name=update_comtrade_trigger_time(path_raw=path_raw, orig_name=orig_name, trigger_timestamp=trigger_timestamp)
     return new_name

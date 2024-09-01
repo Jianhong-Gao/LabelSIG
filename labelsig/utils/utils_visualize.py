@@ -24,7 +24,7 @@ def create_folders(tree, root):
             create_folders(value, current_path)
 
 
-def plot_channel_data(voltage, current, index, sampling_rate, trigger_moment=None, filename=None):
+def plot_channel_data(voltage, current, index, sampling_rate, trigger_index=None, filename=None):
     fig, ax1 = plt.subplots(figsize=(6, 3))
     ax1.set_title(f"file name: {filename}")
     time_values_ms = [(i / sampling_rate) * 1 for i in index]
@@ -37,8 +37,8 @@ def plot_channel_data(voltage, current, index, sampling_rate, trigger_moment=Non
     ax2.plot(time_values_ms, current, color='b', label='Zero-sequence Current')
     ax2.set_ylabel('Current(A)')
     ax2.set_xlim(time_values_ms[0], time_values_ms[-1])
-    if trigger_moment is not None and trigger_moment in index:
-        start_time_ms = (trigger_moment / sampling_rate) * 1
+    if trigger_index is not None and trigger_index in index:
+        start_time_ms = (trigger_index / sampling_rate) * 1
         ax1.axvline(x=start_time_ms, color='g', linestyle='--', label='Trigger Moment')
         ax2.axvline(x=start_time_ms, color='g', linestyle='--')
     lines, labels = ax1.get_legend_handles_labels()
@@ -68,7 +68,7 @@ def single_visualize(filename, path_output, path_source, annotation):
     channels_info = get_channels_comtrade(path_file_base=path_file_base)
     info_comtrade = get_info_comtrade(path_file_base=path_file_base)
     sampling_rate = info_comtrade['sampling_rate']
-    trigger_moment = info_comtrade['trigger_moment']
+    trigger_index = info_comtrade['trigger_index']
     analog_channel_ids = channels_info['analog_channel_ids']
     analog_values = channels_info['analog_channel_values']
     length_one_cycle = int(sampling_rate * 0.02)
@@ -79,14 +79,14 @@ def single_visualize(filename, path_output, path_source, annotation):
         I0 = analog_values[id_I0]
         diff_U0 = differentiate_voltage(voltage=U0)
 
-        if len(diff_U0) < trigger_moment:
+        if len(diff_U0) < trigger_index:
             fig, ax1 = plt.subplots(figsize=(6, 3))
             ax1.set_title(f"File name: {filename}")
         else:
-            channel_voltage, channel_current, channel_index = process_analog_data(diff_U0, I0, trigger_moment,
+            channel_voltage, channel_current, channel_index = process_analog_data(diff_U0, I0, trigger_index,
                                                                                   length_one_cycle)
             fig, _ = plot_channel_data(channel_voltage, channel_current, channel_index, sampling_rate,
-                                       trigger_moment=trigger_moment, filename=filename)
+                                       trigger_index=trigger_index, filename=filename)
     else:
         fig, ax1 = plt.subplots(figsize=(6, 3))
         ax1.set_title(f"File name: {filename}")
@@ -115,55 +115,75 @@ def batch_visualize(filename_list, path_output, path_source):
         single_visualize(filename, path_output, path_source)
 
 
-def get_image_from_comtrade(channel_selected=None, comtrade_selected=None,
-                            info_comtrade=None, channels_info=None,mode=None,scale_rate=0.4):
+def get_image_from_comtrade(info_comtrade=None, mode=None, image_scale_factor=0.4):
+    # Extract necessary info from comtrade info
+    selected_channel = info_comtrade['selected_channel']
     total_samples = info_comtrade['total_samples']
-    trigger_moment = info_comtrade['trigger_moment']
+    trigger_index = info_comtrade['trigger_index']
     sampling_rate = info_comtrade['sampling_rate']
+    channels_info = info_comtrade['channels_info']
+    filename = info_comtrade['filename']
+    # Get the channel values and time values in milliseconds
+    channel_values = [value * 1000 for value in channels_info['analog_channel_values']
+    [channels_info['analog_channel_ids'].index(selected_channel)]]
+    time_values_ms = [(i / sampling_rate) * 1000 for i in range(total_samples)]  # Convert time to milliseconds
+    # Calculate margins and size based on mode
     if mode == 'Annotation':
-        data_pixel = int(total_samples * scale_rate)
-        size_pixel, left_margin, right_margin = data_pixel + 150, 100 / (data_pixel + 150), \
-                                                (100+data_pixel) / (data_pixel + 150)
+        data_pixel = int(total_samples * image_scale_factor)
+        size_pixel = data_pixel + 150
+        left_margin = 100 / size_pixel
+        right_margin = (100 + data_pixel) / size_pixel
     else:
-        size_pixel, left_margin, right_margin = 1300, 0.1, 0.95
+        size_pixel = 1300
+        left_margin = 0.1
+        right_margin = 0.95
 
+
+    # Set figure dimensions and properties
     dpi = 100
-
     fig = plt.figure(figsize=(size_pixel / dpi, 5.8), dpi=dpi)
     plt.subplots_adjust(left=left_margin, right=right_margin, top=0.9, bottom=0.1)
-    channel_values = [value * 1000 for value in
-                      channels_info['analog_channel_values'][channels_info['analog_channel_ids'].index(channel_selected)]]
-    time_values_ms = [i / sampling_rate for i in range(total_samples)]
-    plt.plot(time_values_ms,channel_values)
 
-    name_image = os.path.basename(comtrade_selected) + '_' + channel_selected
+
+
+    # Plot the data
+    plt.plot(time_values_ms, channel_values)
+
+    # Set plot title and labels
+    name_image = os.path.basename(filename) + '_' + selected_channel
     plt.title(name_image)
-    plt.ylabel('Amplitude(kV)' if channel_selected.startswith('U') else 'Amplitude(kA)' if channel_selected.startswith(
-        'I') else 'Amplitude')
-    plt.xlabel('Time(s)')
+    plt.ylabel('Amplitude(kV)' if selected_channel.startswith('U') else
+               'Amplitude(kA)' if selected_channel.startswith('I') else 'Amplitude')
+    plt.xlabel('Time (ms)')  # Change the x-axis label to milliseconds
+
     ax = plt.gca()  # Get current axes
-    if trigger_moment is not None:
-        start_time_ms = (trigger_moment / sampling_rate) * 1
-        ax.axvline(x=start_time_ms, color='g', linestyle='--', label='Trigger Moment')
-    plt.legend()
+
+    # Add trigger index line if present
+    if trigger_index is not None:
+        trigger_time_ms = (trigger_index / sampling_rate) * 1000  # Convert trigger index time to milliseconds
+        ax.axvline(x=trigger_time_ms, color='g', linestyle='--', label='Trigger Index')
+        plt.legend()
+
+    # Set x-axis ticks and limits
     max_ticks = size_pixel // 50
     ax.xaxis.set_major_locator(MaxNLocator(max_ticks))
     plt.xlim(time_values_ms[0], time_values_ms[-1])
-    # plt.xlim(0, total_samples-1)
-    plt.close()
+
+    # Render the plot to a buffer
+    plt.close()  # Close the plot to avoid displaying it
     canvas = FigureCanvas(fig)
     canvas.draw()
     buf = canvas.buffer_rgba()
     return buf
 
-def get_image_from_comtrade_location(channel_selected=None, comtrade_selected=None,
+def get_image_from_comtrade_location(selected_channel=None, selected_comtrade_filename=None,
                             info_comtrade=None, channels_info=None,
-                            mode='Annotation',scale_rate=0.6,reference_signal=[]):
+                            mode='Annotation',image_scale_factor=0.6,reference_signal=[]):
     total_samples = info_comtrade['total_samples']
-    trigger_moment = info_comtrade['trigger_moment']
+    trigger_index = info_comtrade['trigger_index']
     sampling_rate = info_comtrade['sampling_rate']
     if mode == 'Annotation':
-        data_pixel = int(total_samples * scale_rate)
+        data_pixel = int(total_samples * image_scale_factor)
         size_pixel, left_margin, right_margin = data_pixel + 150, 100 / (data_pixel + 150), \
                                                 (100+data_pixel) / (data_pixel + 150)
     else:
@@ -174,7 +194,7 @@ def get_image_from_comtrade_location(channel_selected=None, comtrade_selected=No
 
 
     channel_values = [value * 1000 for value in
-                      channels_info['analog_channel_values'][channels_info['analog_channel_ids'].index(channel_selected)]]
+                      channels_info['analog_channel_values'][channels_info['analog_channel_ids'].index(selected_channel)]]
     time_values_ms = [i / sampling_rate for i in range(total_samples)]
     ax1 = plt.gca()
     ax1.plot(time_values_ms, channel_values)
@@ -191,13 +211,13 @@ def get_image_from_comtrade_location(channel_selected=None, comtrade_selected=No
         ax2.set_zorder(1)  # 设置ax1的z-order为更高的值
     ax1.patch.set_visible(False)  # 设置ax1的背景为透明
 
-    name_image = os.path.basename(comtrade_selected) + '_' + channel_selected
+    name_image = os.path.basename(selected_comtrade_filename) + '_' + selected_channel
     ax1.set_title(name_image)
-    ax1.set_ylabel('Amplitude(kV)' if channel_selected.startswith('U') else 'Amplitude(kA)' if channel_selected.startswith('I') else 'Amplitude')
+    ax1.set_ylabel('Amplitude(kV)' if selected_channel.startswith('U') else 'Amplitude(kA)' if selected_channel.startswith('I') else 'Amplitude')
     ax1.set_xlabel('Time(s)')
 
-    if trigger_moment is not None:
-        start_time_ms = (trigger_moment / sampling_rate) * 1
+    if trigger_index is not None:
+        start_time_ms = (trigger_index / sampling_rate) * 1
         ax1.axvline(x=start_time_ms, color='g', linestyle='--', label='Trigger Moment')
     # Configure ticks
     max_ticks = size_pixel // 50
@@ -220,20 +240,3 @@ def get_image_from_comtrade_location(channel_selected=None, comtrade_selected=No
 
 
 
-if __name__ == '__main__':
-    STATISTICS_TREE = {
-        'NE': {'total': 0},
-        'PE': {
-            'total': 0,
-            'location': {'FN': 0, 'SN': 0, 'AN': 0, 'UNK': 0},
-            'type': {'HIF': 0, 'SPG': 0, 'DIS': 0, 'UNK': 0}
-        },
-        'TE': {
-            'total': 0,
-            'location': {'FN': 0, 'SN': 0, 'AN': 0, 'UNK': 0},
-            'type': {'HIF': 0, 'SPG': 0, 'DIS': 0, 'UNK': 0}
-        },
-        'UNK': {'total': 0}
-    }
-    root_path = os.path.join(get_parent_directory(levels_up=2), 'testnew')  # 将此路径替换为你希望创建文件夹的目录
-    create_folders(tree=STATISTICS_TREE, root=root_path)

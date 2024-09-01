@@ -1,2 +1,2 @@
 @echo off
-python "..\config\create_batch_file.py"
+python "..\labelsig\config\create_batch_file.py"
