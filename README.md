@@ -53,3 +53,18 @@ conda create --name=LabeSIG python=3
 conda activate LabeSIG
 pip install LabeSIG
 ```
+
+### Run
+To start LabelSIG, run one of the following commands in your terminal:
+```bash
+labelsig 
+```
+or
+```bash
+LabelSIG
+```
+or
+```bash
+
+Labelsig
+```
