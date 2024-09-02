@@ -42,7 +42,7 @@ class Ui_MainWindow(object):
         self.label_info = QtWidgets.QLabel(self.centralwidget)
         self.label_info.setGeometry(QtCore.QRect(220, 14, 641, 140))
         self.label_info.setStyleSheet("font-family: \'Bahnschrift Condensed\';\n"
-"font-size: 25pt;\n"
+"font-size: 20pt;\n"
 "background-color: rgb(255, 255, 255);\n"
 "border: 2px solid rgb(48, 105, 176);\n"
 "border-radius: 15px;\n"

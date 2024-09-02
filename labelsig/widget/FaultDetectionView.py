@@ -314,7 +314,7 @@ disabled_button_style = (
 
 
 class FaultDetectionPage(QMainWindow, Ui_main):
-    VERSION='2.0.0'
+    VERSION='2.0.1'
     def __init__(self,parent=None):
         super(FaultDetectionPage, self).__init__()
         self.setupUi(self)

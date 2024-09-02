@@ -295,7 +295,7 @@ disabled_button_style = (
 
 
 class FaultLocalizationPage(QMainWindow, Ui_main):
-    VERSION='2.0.0'
+    VERSION='2.0.1'
     def __init__(self,parent=None):
         super(FaultLocalizationPage, self).__init__()
         self.setupUi(self)

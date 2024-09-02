@@ -20,13 +20,13 @@ start /B D:\Program\Anaconda\envs\pure_pyqt\python.exe "{main_path}"
 """
 
     # 直接在batch-generate文件夹中创建.bat文件
-    bat_path = os.path.join(current_folder_path, "CabrSIG.bat")
+    bat_path = os.path.join(current_folder_path, "LabelSIG.bat")
 
     with open(bat_path, "w") as bat_file:
         bat_file.write(bat_content)
 
     # 将快捷方式放在batch-generate的上一级目录
-    shortcut_path = os.path.abspath(os.path.join(current_folder_path, "../../scripts/CabrSIG.lnk"))
+    shortcut_path = os.path.abspath(os.path.join(current_folder_path, "../../scripts/LabelSIG.lnk"))
 
     # 图标的相对路径
     icon_path = os.path.abspath(os.path.join(current_folder_path, "../resource/logo.ico"))
@@ -35,7 +35,7 @@ start /B D:\Program\Anaconda\envs\pure_pyqt\python.exe "{main_path}"
     create_shortcut(bat_path, shortcut_path, icon_path)
 
     print(f"CabrSIG.bat has been created at {bat_path}!")
-    print(f"A shortcut for CabrSIG.bat with the logo icon has been created at {shortcut_path}!")
+    print(f"A shortcut for LabelSIG.bat with the logo icon has been created at {shortcut_path}!")
 
 if __name__ == "__main__":
     create_batch_file()

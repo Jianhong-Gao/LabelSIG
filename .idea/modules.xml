@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Application-DataCalibration.iml" filepath="$PROJECT_DIR$/.idea/Application-DataCalibration.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/LabelSIG.iml" filepath="$PROJECT_DIR$/.idea/LabelSIG.iml" />
     </modules>
   </component>
 </project>

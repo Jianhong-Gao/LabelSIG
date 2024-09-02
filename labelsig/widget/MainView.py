@@ -1,5 +1,9 @@
 import sys
 import os
+from PyQt5.QtCore import QThread, pyqtSignal
+import os
+import time
+from multiprocessing import Pool, cpu_count
 import stat
 import shutil
 import time
@@ -18,7 +22,10 @@ from labelsig.widget.FaultDetectionView import FaultDetectionPage
 from labelsig.widget.FaultIdentificationView import FaultIdentificationPage
 from labelsig.widget.FaultLocalizationView import FaultLocalizationPage
 from labelsig.widget.HelpView import HelpDialog
-
+from PyQt5.QtCore import QThread, pyqtSignal
+import os
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from labelsig.utils.utils_general import get_annotation_ranges,get_sorted_unique_file_basenames,get_parent_directory
 from labelsig.utils.utils_annotation import write_annotation,load_annotation,get_annotation_info
 from labelsig.utils.utils_comtrade import get_info_comtrade,update_comtrade,delete_specific_channels
@@ -26,6 +33,20 @@ from labelsig.utils.utils_comtrade import get_info_comtrade,update_comtrade,dele
 
 style_enable = "color: rgb(255, 255, 255);\nfont: 25pt 'Bahnschrift Condensed';\nbackground-color: rgb(48, 105, 176);border-radius: 16px;"
 style_disable = "color: rgb(0, 0, 0);\nfont: 25pt 'Bahnschrift Condensed';\nbackground-color: rgb(169, 169, 197);border-radius: 16px;"
+
+
+def process_file(file_name, path_raw, path_ann):
+    """Process a single file, intended to be run in a separate process."""
+    file_start_time = time.time()
+    annotation_file_base_path = os.path.join(path_ann, file_name)
+
+    annotation = load_annotation(annotation_file_base_path)
+    if annotation["sampling_rate"] is None:
+        selected_comtrade_info = get_info_comtrade(path_raw, path_ann, file_name)
+        annotation = get_annotation_info(selected_comtrade_info, annotation)
+        write_annotation(os.path.join(path_ann, file_name),annotation)
+    full_load_time = time.time() - file_start_time
+    return file_name, annotation, full_load_time
 
 
 class LoadFolderThread(QThread):
@@ -54,7 +75,7 @@ class LoadFolderThread(QThread):
             self.import_files(raw_folder_path, self.internal_raw_path)
         else:
             self.import_other_files()
-
+        start_time=time.time()
         dict_info = self.get_dict()
         self.signal_finished.emit(self.external_folder_path, dict_info)
 
@@ -96,37 +117,47 @@ class LoadFolderThread(QThread):
                 base_name = os.path.splitext(file_name)[0]
                 if base_name not in existing_files_base_names:
                     shutil.copy(external_file_path, self.internal_raw_path)
-        self.signal_update_label.emit(f"[{'█' * progress_bar_length}] All files imported!")
+        self.signal_update_label.emit(f"[{'█' * progress_bar_length}] All files imported,waiting for processing!")
+
 
     def get_dict(self, bar_length=50):
         dict_info = {}
         total_files = len(get_sorted_unique_file_basenames(self.internal_raw_path))
-        processing_times = []  # 记录每个文件的处理时间
-        for idx, file_name in enumerate(get_sorted_unique_file_basenames(self.internal_raw_path)):
-            file_start_time = time.time()
-            path_file_ann = os.path.join(self.internal_ann_path, file_name)
-            selected_comtrade_info=get_info_comtrade(self.internal_raw_path, self.internal_ann_path, file_name)
-            annotation=load_annotation(path_file_ann)
-            annotation=get_annotation_info(selected_comtrade_info,annotation)
-            dict_info[file_name] = annotation
-            file_end_time = time.time()
-            processing_times.append(file_end_time - file_start_time)
-            max_time_per_file = max(processing_times)
-            # 这里我们考虑最大处理时间来预估剩余时间
-            estimated_remaining_time = max_time_per_file * (total_files - idx - 1)
-            progress_ratio = (idx + 1) / total_files
-            filled_length = int(bar_length * progress_ratio)
-            bar = '█' * filled_length + '-' * (bar_length - filled_length)
-            mins, secs = divmod(estimated_remaining_time, 60)
-            self.signal_update_label.emit(f"[{bar}] ({idx + 1}/{total_files}) \nProcessing file: {file_name} \nEstimated remaining time: {int(mins)} minutes {int(secs)} seconds"
-            )
-
-        self.signal_update_label.emit("[{}] All files processed!".format('█' * bar_length))
         if total_files == 0:
             self.signal_update_label.emit("[{}] No files found!".format('█' * bar_length))
+            return dict_info
 
+        with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+            future_to_file = {executor.submit(process_file, file_name, self.internal_raw_path, self.internal_ann_path): file_name
+                              for file_name in get_sorted_unique_file_basenames(self.internal_raw_path)}
+            processing_times = []
+
+            for future in as_completed(future_to_file):
+                file_name = future_to_file[future]
+                try:
+                    file_name, annotation, full_load_time = future.result()
+                    dict_info[file_name] = annotation
+                    processing_times.append(full_load_time)
+
+                    if self.signal_update_label:
+                        max_time_per_file = max(processing_times)
+                        idx = len(dict_info)
+                        estimated_remaining_time = max_time_per_file * (total_files - idx)
+                        progress_ratio = idx / total_files
+                        bar_length = 50
+                        filled_length = int(bar_length * progress_ratio)
+                        bar = '█' * filled_length + '-' * (bar_length - filled_length)
+                        mins, secs = divmod(estimated_remaining_time, 60)
+                        progress_text = (f"[{bar}] ({idx}/{total_files}) \n"
+                                         f"Processing file: {file_name} \n"
+                                         f"Estimated remaining time: {int(mins)} minutes {int(secs)} seconds")
+                        self.signal_update_label.emit(progress_text)
+                except Exception as e:
+                    print(f"File processing failed for {file_name}: {e}")
+
+
+        self.signal_update_label.emit("[{}] All files processed!".format('█' * bar_length))
         return dict_info
-
 
 class FileOpenThread(QThread):
     def __init__(self, file_path):
@@ -261,6 +292,7 @@ class CustomTableWidget(QTableWidget):
 
     def _populate_row_with_data(self, row, file_name, annotation):
         """Populate a single row with the provided data."""
+
         sampling_rate = int(annotation["sampling_rate"])
         total_sample_points = annotation["total_samples"]
         total_duration = int((total_sample_points / sampling_rate) * 1000)
@@ -404,15 +436,72 @@ class CustomTableWidget(QTableWidget):
 
 
 
+class FileProcessorThread(QThread):
+    flag_enable_button = pyqtSignal(bool)
+    update_progress = pyqtSignal(str)  # Signal to update progress
+    finished = pyqtSignal(dict)  # Signal to indicate completion
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.root_project = get_parent_directory(levels_up=1)
+        self.path_raw = os.path.join(self.root_project, "tmp", "raw")
+        self.path_ann = os.path.join(self.root_project, "tmp", "ann")
+
+    def get_sorted_unique_file_basenames(self, path):
+        return get_sorted_unique_file_basenames(path)
+
+    def run(self):
+        self.flag_enable_button.emit(False)
+        dict_info = {}
+        total_files = len(self.get_sorted_unique_file_basenames(self.path_raw))
+        processing_times=[]
+
+        if total_files == 0:
+            self.update_progress.emit("[{}] No files found!".format('█' * 50))
+            self.finished.emit(dict_info)
+            self.flag_enable_button.emit(True)
+            return
+
+
+        for idx, file_name in enumerate(self.get_sorted_unique_file_basenames(self.path_raw)):
+            file_start_time = time.time()
+            start_time=time.time()
+            file_name, annotation, full_load_time=process_file(file_name,self.path_raw, self.path_ann, )
+            dict_info[file_name] = annotation
+            file_end_time = time.time()
+            processing_times.append(file_end_time - file_start_time)
+            if self.update_progress:
+                max_time_per_file = max(processing_times)
+                estimated_remaining_time = max_time_per_file * (total_files - idx - 1)
+                progress_ratio = (idx + 1) / total_files
+                bar_length = 50
+                filled_length = int(bar_length * progress_ratio)
+                bar = '█' * filled_length + '-' * (bar_length - filled_length)
+                mins, secs = divmod(estimated_remaining_time, 60)
+                progress_text = (f"[{bar}] ({idx + 1}/{total_files}) \n"
+                                 f"Processing file: {file_name} \n"
+                                 f"Estimated remaining time: {int(mins)} minutes {int(secs)} seconds")
+                self.update_progress.emit(progress_text)
+        self.update_progress.emit("[{}] All files processed!".format('█' * 50))
+
+
+        self.update_progress.emit("[{}] All files processed!".format('█' * 50))
+        self.finished.emit(dict_info)
+        self.flag_enable_button.emit(True)
+
+
+
+
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__()
         self.setupUi(self)
-        self.version = '2024.09.02'
+        self.version = '2.0.1'
         self.init_ui_elements()
         self.connect_signals()
 
     def init_ui_elements(self):
+
         self.reconfigure_table_files()
         self.setWindowTitle("LabelSIG")
         self.statusBar().showMessage(f"Version: {self.version}")
@@ -423,18 +512,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         os.makedirs(self.path_raw, exist_ok=True)
         os.makedirs(self.path_ann, exist_ok=True)
         self.setup_label_info()
-        layout = QVBoxLayout()
-        layout.addWidget(self.label_info)
-        self.setLayout(layout)
 
-        self.disable_buttons()
-        dict_info = self.get_dict()
-        self.display_files_in_table(dict_info)
-        self.label_info.setText('Initialization Complete')
-        self.enable_buttons()
         path_icon=os.path.join(self.root_project, 'resource', 'WindowIcon.png')
         self.setWindowIcon(QIcon(path_icon))
 
+
+        self.file_Processor_thread=FileProcessorThread()
+        self.file_Processor_thread.flag_enable_button.connect(self.call_enable_buttons)
+        self.file_Processor_thread.update_progress.connect(self.update_label_info)
+        self.file_Processor_thread.finished.connect(self.display_files_in_table)
+        self.file_Processor_thread.start()
+
+
+
+    def call_enable_buttons(self,flag_enable_button):
+        if flag_enable_button:
+            self.enable_buttons()
+        else:
+            self.disable_buttons()
 
     def set_button_style(self, button, enable=True):
         if enable:
@@ -522,11 +617,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         shutil.rmtree(self.path_ann)
         os.makedirs(self.path_raw, exist_ok=True)
         os.makedirs(self.path_ann, exist_ok=True)
-        self.disable_buttons()
-        dict_info = self.get_dict()
-        self.display_files_in_table(dict_info)
-        self.label_info.setText('Cache cleared')
-        self.enable_buttons()
+        self.file_Processor_thread.start()
+
 
     def show_help(self):
         help_dialog = HelpDialog(self)
@@ -652,41 +744,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.table_files.delete_row(row)
             self.label_info.setText(f'选中的文件已被删除')
 
-    def get_dict(self, bar_length=50):
-        dict_info = {}
-        total_files = len(get_sorted_unique_file_basenames(self.path_raw))
-        processing_times = []  # 记录每个文件的处理时间
-        for idx, file_name in enumerate(get_sorted_unique_file_basenames(self.path_raw)):
-            file_start_time = time.time()
-            annotation_file_base_path = os.path.join(self.path_ann, file_name)
-            selected_comtrade_info=get_info_comtrade(self.path_raw, self.path_ann, file_name)
-            annotation=load_annotation(annotation_file_base_path)
-            annotation=get_annotation_info(selected_comtrade_info,annotation)
-            dict_info[file_name] = annotation
-            file_end_time = time.time()
-            processing_times.append(file_end_time - file_start_time)
-            if self.label_info is not None:
-                max_time_per_file = max(processing_times)
-                # 这里我们考虑最大处理时间来预估剩余时间
-                estimated_remaining_time = max_time_per_file * (total_files - idx - 1)
-                progress_ratio = (idx + 1) / total_files
-                filled_length = int(bar_length * progress_ratio)
-                bar = '█' * filled_length + '-' * (bar_length - filled_length)
-                mins, secs = divmod(estimated_remaining_time, 60)
-                self.label_info.setText(
-                    f"[{bar}] ({idx + 1}/{total_files}) \nProcessing file: {file_name} \nEstimated remaining time: {int(mins)} minutes {int(secs)} seconds"
-                )
 
-        self.label_info.setText("[{}] All files processed!".format('█' * bar_length))
-        if total_files == 0:
-            self.label_info.setText("[{}] No files found!".format('█' * bar_length))
-
-        return dict_info
 
 
 if __name__ == '__main__':
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    app = QApplication(sys.argv)
-    login = MainWindow()
-    login.show()
-    sys.exit(app.exec_())
+    app = QApplication([])
+    MainWindow = MainWindow()
+    MainWindow.show()
+    app.exec_()
+    # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+    # app = QApplication(sys.argv)
+    # login = MainWindow()
+    # login.show()
+    # sys.exit(app.exec_())
