@@ -1,34 +1,44 @@
-import sys
+import logging
 import os
-from PyQt5.QtCore import QThread, pyqtSignal
-import os
-import time
-from multiprocessing import Pool, cpu_count
-import stat
 import shutil
-import time
+import stat
 import threading
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
+from multiprocessing import cpu_count
+
 from PyQt5.QtCore import *
+from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtGui import QIcon, QFont, QIntValidator
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QFileDialog, QTreeWidgetItem, QTableWidget,
+    QApplication, QMainWindow, QFileDialog, QTreeWidgetItem, QTableWidget,QDesktopWidget,
     QPushButton, QLineEdit, QLabel, QCheckBox, QRadioButton, QWidget,
-    QHBoxLayout, QVBoxLayout, QSizePolicy, QToolTip, QMessageBox,QHeaderView
+    QHBoxLayout, QSizePolicy, QToolTip, QMessageBox, QHeaderView
 )
+
+filename = os.path.splitext(os.path.basename(__file__))[0]
+if not logging.getLogger().hasHandlers():  # 检查是否已配置
+    logging.basicConfig(
+        level=logging.INFO,  # 辅助程序可以设置不同的日志级别
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[
+            logging.FileHandler(f"{filename}.log"),
+            logging.StreamHandler()
+        ]
+    )
+logger = logging.getLogger(filename)
+
 from labelsig.ui_generated.ui_main_view import Ui_MainWindow
+from labelsig.utils.utils_annotation import write_annotation, load_annotation, get_annotation_info
+from labelsig.utils.utils_comtrade import get_info_comtrade, update_comtrade, delete_specific_channels
+from labelsig.utils.utils_general import get_sorted_unique_file_basenames, get_parent_directory
 from labelsig.widget.ChannelSelectionView import ChannelSelectionDialog
 from labelsig.widget.FaultDetectionView import FaultDetectionPage
 from labelsig.widget.FaultIdentificationView import FaultIdentificationPage
 from labelsig.widget.FaultLocalizationView import FaultLocalizationPage
 from labelsig.widget.HelpView import HelpDialog
-from PyQt5.QtCore import QThread, pyqtSignal
-import os
-import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from labelsig.utils.utils_general import get_annotation_ranges,get_sorted_unique_file_basenames,get_parent_directory
-from labelsig.utils.utils_annotation import write_annotation,load_annotation,get_annotation_info
-from labelsig.utils.utils_comtrade import get_info_comtrade,update_comtrade,delete_specific_channels
 
 
 style_enable = "color: rgb(255, 255, 255);\nfont: 25pt 'Bahnschrift Condensed';\nbackground-color: rgb(48, 105, 176);border-radius: 16px;"
@@ -44,7 +54,7 @@ def process_file(file_name, path_raw, path_ann):
     if annotation["sampling_rate"] is None:
         selected_comtrade_info = get_info_comtrade(path_raw, path_ann, file_name)
         annotation = get_annotation_info(selected_comtrade_info, annotation)
-        write_annotation(os.path.join(path_ann, file_name),annotation)
+        write_annotation(os.path.join(path_ann, file_name), annotation)
     full_load_time = time.time() - file_start_time
     return file_name, annotation, full_load_time
 
@@ -52,13 +62,14 @@ def process_file(file_name, path_raw, path_ann):
 class LoadFolderThread(QThread):
     signal_finished = pyqtSignal(str, dict)
     signal_duplicate_files = pyqtSignal(list)  # Signal to inform the main thread about duplicate files.
-    signal_update_label =pyqtSignal(str)
+    signal_update_label = pyqtSignal(str)
+
     def __init__(self, mainwindow, external_folder_path):
         super().__init__()
         self.main_window = mainwindow
         self.root_project_path = get_parent_directory(levels_up=1)
-        self.internal_raw_path = os.path.join(self.root_project_path,'tmp', 'raw')
-        self.internal_ann_path = os.path.join(self.root_project_path,'tmp', 'ann')
+        self.internal_raw_path = os.path.join(self.root_project_path, 'tmp', 'raw')
+        self.internal_ann_path = os.path.join(self.root_project_path, 'tmp', 'ann')
         self.external_folder_path = external_folder_path
 
     def run(self):
@@ -75,7 +86,7 @@ class LoadFolderThread(QThread):
             self.import_files(raw_folder_path, self.internal_raw_path)
         else:
             self.import_other_files()
-        start_time=time.time()
+        start_time = time.time()
         dict_info = self.get_dict()
         self.signal_finished.emit(self.external_folder_path, dict_info)
 
@@ -101,7 +112,7 @@ class LoadFolderThread(QThread):
                                      if os.path.isfile(os.path.join(self.internal_raw_path, file_name))}
         all_files = os.listdir(self.external_folder_path)
         total_files = len(all_files)
-        progress_bar_length = 50  # Length of the progress bar
+        progress_bar_length = 30  # Length of the progress bar
 
         for index, file_name in enumerate(all_files):
             progress_ratio = (index + 1) / total_files
@@ -109,7 +120,7 @@ class LoadFolderThread(QThread):
 
             progress_bar = '█' * filled_length + '-' * (progress_bar_length - filled_length)
             progress_text = f"{index + 1}/{total_files}"
-            update_info=f"[{progress_bar}] {progress_text} 正在导入: {file_name}"
+            update_info = f"[{progress_bar}] {progress_text} 正在导入: {file_name}"
             self.signal_update_label.emit(update_info)
 
             external_file_path = os.path.join(self.external_folder_path, file_name)
@@ -119,8 +130,7 @@ class LoadFolderThread(QThread):
                     shutil.copy(external_file_path, self.internal_raw_path)
         self.signal_update_label.emit(f"[{'█' * progress_bar_length}] All files imported,waiting for processing!")
 
-
-    def get_dict(self, bar_length=50):
+    def get_dict(self, bar_length=30):
         dict_info = {}
         total_files = len(get_sorted_unique_file_basenames(self.internal_raw_path))
         if total_files == 0:
@@ -128,8 +138,9 @@ class LoadFolderThread(QThread):
             return dict_info
 
         with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
-            future_to_file = {executor.submit(process_file, file_name, self.internal_raw_path, self.internal_ann_path): file_name
-                              for file_name in get_sorted_unique_file_basenames(self.internal_raw_path)}
+            future_to_file = {
+                executor.submit(process_file, file_name, self.internal_raw_path, self.internal_ann_path): file_name
+                for file_name in get_sorted_unique_file_basenames(self.internal_raw_path)}
             processing_times = []
 
             for future in as_completed(future_to_file):
@@ -144,7 +155,7 @@ class LoadFolderThread(QThread):
                         idx = len(dict_info)
                         estimated_remaining_time = max_time_per_file * (total_files - idx)
                         progress_ratio = idx / total_files
-                        bar_length = 50
+                        bar_length = 30
                         filled_length = int(bar_length * progress_ratio)
                         bar = '█' * filled_length + '-' * (bar_length - filled_length)
                         mins, secs = divmod(estimated_remaining_time, 60)
@@ -153,11 +164,11 @@ class LoadFolderThread(QThread):
                                          f"Estimated remaining time: {int(mins)} minutes {int(secs)} seconds")
                         self.signal_update_label.emit(progress_text)
                 except Exception as e:
-                    print(f"File processing failed for {file_name}: {e}")
-
+                    logger.error(f"File processing failed for {file_name}: {e}")
 
         self.signal_update_label.emit("[{}] All files processed!".format('█' * bar_length))
         return dict_info
+
 
 class FileOpenThread(QThread):
     def __init__(self, file_path):
@@ -208,10 +219,11 @@ class StatusWidget(QWidget):
         return None
 
 
-
 class CustomTableWidget(QTableWidget):
     signal_update_label = pyqtSignal(str)
-    HEADERS = ["Filename", "Sampling rate(Hz)", "Total Sample Points", "Total Duration(ms)", "Trigger Index", "Function"]
+    HEADERS = ["Filename", "Sampling rate(Hz)", "Total Sample Points", "Total Duration(ms)", "Trigger Index",
+               "Function"]
+
     def __init__(self, parent=None):
         super(CustomTableWidget, self).__init__(parent)
         self.setContentsMargins(0, 0, 0, 0)  # 移除边距
@@ -288,8 +300,6 @@ class CustomTableWidget(QTableWidget):
         for row, (file_name, annotation) in enumerate(dict_info.items()):
             self._populate_row_with_data(row, file_name, annotation)
 
-
-
     def _populate_row_with_data(self, row, file_name, annotation):
         """Populate a single row with the provided data."""
 
@@ -360,7 +370,6 @@ class CustomTableWidget(QTableWidget):
         edit_thread = threading.Thread(target=run)
         edit_thread.start()
 
-
     def _execute_file_action(self, row, action):
         """Helper method to execute a file-related action."""
         orig_name = self._get_filename_from_row(row)
@@ -399,7 +408,7 @@ class CustomTableWidget(QTableWidget):
             os.remove(file_path)
 
         except PermissionError:
-            print(f"Permission denied: {file_path}")
+            logger.error(f"Permission denied: {file_path}")
 
     def get_checked_files_with_rows(self):
         """Return a list of tuples containing the checked filenames and their row numbers."""
@@ -417,11 +426,11 @@ class CustomTableWidget(QTableWidget):
             return
         widget = self.cellWidget(row, 0)  # 获取第 0 列的组件
         if widget is None:
-            print(f"第 {row} 行的组件为空。")
+            logger.info(f"第 {row} 行的组件为空。")
             return
         label = widget.findChild(QLabel)  # 从组件中查找QLabel
         if label is None:
-            print(f"无法在第 {row} 行的组件中找到标签。")
+            logger.info(f"无法在第 {row} 行的组件中找到标签。")
             return
         file_name = label.text()
         for ext in ['.cfg', '.dat']:
@@ -433,7 +442,6 @@ class CustomTableWidget(QTableWidget):
 
         self.removeRow(row)
         self.signal_update_label.emit(f'文件 {file_name} 及其标注文件已被删除')
-
 
 
 class FileProcessorThread(QThread):
@@ -454,7 +462,7 @@ class FileProcessorThread(QThread):
         self.flag_enable_button.emit(False)
         dict_info = {}
         total_files = len(self.get_sorted_unique_file_basenames(self.path_raw))
-        processing_times=[]
+        processing_times = []
 
         if total_files == 0:
             self.update_progress.emit("[{}] No files found!".format('█' * 50))
@@ -462,11 +470,10 @@ class FileProcessorThread(QThread):
             self.flag_enable_button.emit(True)
             return
 
-
         for idx, file_name in enumerate(self.get_sorted_unique_file_basenames(self.path_raw)):
             file_start_time = time.time()
-            start_time=time.time()
-            file_name, annotation, full_load_time=process_file(file_name,self.path_raw, self.path_ann, )
+            start_time = time.time()
+            file_name, annotation, full_load_time = process_file(file_name, self.path_raw, self.path_ann, )
             dict_info[file_name] = annotation
             file_end_time = time.time()
             processing_times.append(file_end_time - file_start_time)
@@ -474,7 +481,7 @@ class FileProcessorThread(QThread):
                 max_time_per_file = max(processing_times)
                 estimated_remaining_time = max_time_per_file * (total_files - idx - 1)
                 progress_ratio = (idx + 1) / total_files
-                bar_length = 50
+                bar_length = 30
                 filled_length = int(bar_length * progress_ratio)
                 bar = '█' * filled_length + '-' * (bar_length - filled_length)
                 mins, secs = divmod(estimated_remaining_time, 60)
@@ -482,23 +489,34 @@ class FileProcessorThread(QThread):
                                  f"Processing file: {file_name} \n"
                                  f"Estimated remaining time: {int(mins)} minutes {int(secs)} seconds")
                 self.update_progress.emit(progress_text)
-        self.update_progress.emit("[{}] All files processed!".format('█' * 50))
+        self.update_progress.emit("[{}] All files processed!".format('█' * bar_length))
 
 
-        self.update_progress.emit("[{}] All files processed!".format('█' * 50))
         self.finished.emit(dict_info)
         self.flag_enable_button.emit(True)
-
-
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__()
         self.setupUi(self)
-        self.version = '2.0.1'
+        self.version = '2.0.4'
+        self.center()
         self.init_ui_elements()
         self.connect_signals()
+
+    def center(self):
+        # 获取主窗口的矩形几何信息
+        qr = self.frameGeometry()
+
+        # 获取屏幕中心点
+        cp = QDesktopWidget().availableGeometry().center()
+
+        # 将主窗口的矩形几何信息移动到屏幕中心
+        qr.moveCenter(cp)
+
+        # 移动窗口的位置到矩形的左上角，这样窗口就居中显示了
+        self.move(qr.topLeft())
 
     def init_ui_elements(self):
 
@@ -507,25 +525,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.statusBar().showMessage(f"Version: {self.version}")
         self.root_project = get_parent_directory(levels_up=1)
 
-        self.path_raw=os.path.join(self.root_project,"tmp","raw")
-        self.path_ann=os.path.join(self.root_project,"tmp","ann")
+        self.path_raw = os.path.join(self.root_project, "tmp", "raw")
+        self.path_ann = os.path.join(self.root_project, "tmp", "ann")
         os.makedirs(self.path_raw, exist_ok=True)
         os.makedirs(self.path_ann, exist_ok=True)
         self.setup_label_info()
 
-        path_icon=os.path.join(self.root_project, 'resource', 'WindowIcon.png')
+        path_icon = os.path.join(self.root_project, 'resource', 'WindowIcon.png')
         self.setWindowIcon(QIcon(path_icon))
 
-
-        self.file_Processor_thread=FileProcessorThread()
+        self.file_Processor_thread = FileProcessorThread()
         self.file_Processor_thread.flag_enable_button.connect(self.call_enable_buttons)
         self.file_Processor_thread.update_progress.connect(self.update_label_info)
         self.file_Processor_thread.finished.connect(self.display_files_in_table)
         self.file_Processor_thread.start()
 
-
-
-    def call_enable_buttons(self,flag_enable_button):
+    def call_enable_buttons(self, flag_enable_button):
         if flag_enable_button:
             self.enable_buttons()
         else:
@@ -569,12 +584,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 item.setText(0, key)
                 item.setText(1, str(value))
 
-
     def setup_label_info(self):
         self.label_info.setWordWrap(True)
         size_policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.label_info.setSizePolicy(size_policy)
-
 
     def connect_signals(self):
         QToolTip.setFont(QFont('SansSerif', 10))
@@ -618,7 +631,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         os.makedirs(self.path_raw, exist_ok=True)
         os.makedirs(self.path_ann, exist_ok=True)
         self.file_Processor_thread.start()
-
 
     def show_help(self):
         help_dialog = HelpDialog(self)
@@ -707,17 +719,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         script_dir = os.path.dirname(__file__)
         relative_path = '../../../'
         initial_path = os.path.abspath(os.path.join(script_dir, relative_path))
-        external_folder_path= QFileDialog.getExistingDirectory(self, 'Open file', initial_path)
+        external_folder_path = QFileDialog.getExistingDirectory(self, 'Open file', initial_path)
 
         if external_folder_path:
             self.label_info.setText(f'外部文件夹 {external_folder_path} 正在加载')
             self.disable_buttons()
-            self.load_thread = LoadFolderThread(mainwindow=self, external_folder_path =external_folder_path)
+            self.load_thread = LoadFolderThread(mainwindow=self, external_folder_path=external_folder_path)
             self.load_thread.signal_finished.connect(self.on_load_folder_finished)
             self.load_thread.signal_update_label.connect(self.update_label_info)
             self.load_thread.start()
 
-    def update_label_info(self,update_info):
+    def update_label_info(self, update_info):
         self.label_info.setText(update_info)
 
     def on_load_folder_finished(self, external_folder_path, dict_info):
@@ -745,9 +757,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.label_info.setText(f'选中的文件已被删除')
 
 
-
-
 if __name__ == '__main__':
+
+
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     app = QApplication([])
     MainWindow = MainWindow()

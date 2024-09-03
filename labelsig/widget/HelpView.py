@@ -21,51 +21,27 @@ class HelpDialog(QMessageBox):
         self.setWindowTitle("帮助")
 
         content = '''
-══════════ 标签栏目详解 ══════════
-[•] NE(Normal Event): 
-    正常事件检测
-[•] UNK(Unknown): 
-    未知
-[✦] PE(Pernament Event): 
-    永久性事件检测
-    ┌─ Fault Type:
-    │  [>] HIF(High Impedance Fault): 高阻故障
-    │  [>] SPG(Single Phase Ground): 单相接地故障
-    │  [>] DIS(Disturbance): 扰动事件
-    │
-    └─ Fault Location:
-       [>] FN(Fault Node): 故障节点
-       [>] SN(Sound Node): 正常节点
-       [>] AN(Abnormal Node): 异常节点
-[✦] TE(Transient Event): 
-    瞬时性事件检测
-    ┌─ Fault Type:
-    │  [>] HIF(High Impedance Fault): 高阻故障
-    │  [>] SPG(Single Phase Ground): 单相接地故障
-    │  [>] DIS(Disturbance): 扰动事件
-    │
-    └─ Fault Location:
-       [>] FN(Fault Node): 故障节点
-       [>] SN(Sound Node): 正常节点
-       [>] AN(Abnormal Node): 异常节点
+═══════════ 软件功能详解 ═══════════
+[※] Fault Detection: 
+    语义分割标注，实现采样点级别的单标签分类
+[※] Fault Identification: 
+    语义分割标注，实现采样点级别的多标签分类
+[※] Fault Localization: 
+    故障选段或区段定位标注：
+    【故障馈线、健全馈线、模糊馈线、参考信号】  
 ═══════════ 表格功能详解 ═══════════
 [※] Clip Channel: 
     裁剪Comtrade文档通道
 [※] Unlock: 
     解锁表格，使其可标注
 [※] Confirm: 
-    确认标注结果
-[※] Visualize: 
-    可视化零序电压和零序电流数据
-    若含有多条零序电流，则无法显示
+    确认Comtrade文件Trigger Index的校正结果
 [※] Clear: 
     清除缓存
-[※] Segmentation: 
-    语义分割标注，可标注多个故障类型
     '''
         self.setText(content)
         self.setStandardButtons(QMessageBox.Ok)
-        self.setFixedSize(400, 600)
+        self.setFixedSize(400, 400)
 
 
 class DemoMainWindow(QMainWindow):
@@ -74,7 +50,7 @@ class DemoMainWindow(QMainWindow):
 
         # Set up main window properties
         self.setWindowTitle("Demo App")
-        self.setGeometry(400, 400, 400, 300)
+        self.setGeometry(400, 400, 400, 200)
 
         # Create Help Button
         self.helpButton = QPushButton("显示帮助", self)

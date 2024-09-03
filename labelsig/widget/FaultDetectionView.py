@@ -1,30 +1,49 @@
+import logging
 import os
+filename = os.path.splitext(os.path.basename(__file__))[0]
+if not logging.getLogger().hasHandlers():  # 检查是否已配置
+    logging.basicConfig(
+        level=logging.INFO,  # 辅助程序可以设置不同的日志级别
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[
+            logging.FileHandler(f"{filename}.log"),
+            logging.StreamHandler()
+        ]
+    )
+logger = logging.getLogger(filename)
+
 import weakref
+
 import numpy as np
-from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal, QLineF
-from PyQt5.QtGui import QPen, QColor, QPainter,QTransform,QIcon, QImage, QPixmap,QFont
-from PyQt5.QtWidgets import (QGraphicsTextItem,
-    QGraphicsView, QGraphicsScene, QGraphicsLineItem,QMessageBox,QDialog,
-    QGraphicsRectItem, QApplication, QGraphicsSimpleTextItem, QMainWindow, QVBoxLayout, QWidget, QHBoxLayout, QPushButton,QLabel, QScrollArea, QListWidgetItem
-)
+from PyQt5.QtCore import Qt, QRectF, QPointF, QLineF
+from PyQt5.QtGui import QPen, QColor, QPainter, QIcon, QFont
+from PyQt5.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsLineItem, QDialog,QDesktopWidget,
+                             QGraphicsRectItem, QApplication, QGraphicsSimpleTextItem, QMainWindow, QLabel,
+                             QListWidgetItem
+                             )
+
+from labelsig.ui_generated.ui_fault_detection_view import Ui_main
+from labelsig.utils.utils_annotation import write_annotation, load_annotation
+from labelsig.utils.utils_comtrade import get_info_comtrade
+from labelsig.utils.utils_general import get_annotation_ranges, get_sorted_unique_file_basenames, get_parent_directory
+from labelsig.widget.CountdownWarningView import WarningDialog
 from labelsig.widget.LabelManagementView import LabelManagementDialog
 
-from labelsig.widget.CountdownWarningView import WarningDialog
-from labelsig.ui_generated.ui_fault_detection_view import Ui_main
 
-from labelsig.utils.utils_general import get_annotation_ranges,get_sorted_unique_file_basenames,get_parent_directory
-from labelsig.utils.utils_annotation import write_annotation,load_annotation
-from labelsig.utils.utils_comtrade import get_info_comtrade
 
 
 class SignalAnnotationView(QGraphicsView):
 
     def __init__(self, parent=None, selected_comtrade_info=None):
         super(SignalAnnotationView, self).__init__(parent)
-        self.scale_factor = 1 / 1.2  # Initial scale factor
+        self.scale_factor = 1/1.1  # Initial scale factor
         self.margin_side = 50  # Space for both left and right margins
-        self.margin_top = 20  # Space for x-axis
+        self.margin_top = 10  # Space for x-axis
         self.margin_bottom = 50  # Space for x-axis
+
+        self.setStyleSheet("QGraphicsView { padding: 10px; margin: 0px; }")
+
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.setGeometry(0, 0, self.parentWidget().width(), self.parentWidget().height())
@@ -44,24 +63,31 @@ class SignalAnnotationView(QGraphicsView):
         self.selected_comtrade_filename = selected_comtrade_info['selected_comtrade_filename']
         self.selected_channel = selected_comtrade_info['selected_channel']
         self.signal_data = np.array(self.channels_info['analog_channel_values'][
-            self.channels_info['analog_channel_ids'].index(self.selected_channel)
-        ]) * 1000
+                                        self.channels_info['analog_channel_ids'].index(self.selected_channel)
+                                    ]) * 1000
         self.sampling_rate = selected_comtrade_info['sampling_rate']
 
         annotation = load_annotation(os.path.join(self.path_ann, self.selected_comtrade_filename))
         self.selected_annotation = annotation["fault_detection"].get(self.selected_channel, {})
         self.rect_item = None
 
-        self.min_y = np.min(self.signal_data)*1.2
-        self.max_y = np.max(self.signal_data)*1.2
+        self.min_y = np.min(self.signal_data) * 1.2
+        self.max_y = np.max(self.signal_data) * 1.2
         self.annotation_items = []  # 用于存储所有注释图形对象的列表
         self._initialize_scene()
 
     def _initialize_scene(self):
         """Initializes the background grid, axes, and signal."""
+        scene_width = self.width() * self.scale_factor  # 增加额外空间
+        scene_height = self.height()  # 增加额外空间
+        self.scene.setSceneRect(0, 0, scene_width, scene_height)
+
         self._draw_background_grid()
         self._draw_axes()
         self._draw_signal()
+
+        self.resetTransform()  # 重置之前的缩放，防止累积缩放
+        self.scale(1, 0.90)  # 仅在垂直方向上缩放
 
     def show_selected_annotation(self):
         # 清除现有的注释
@@ -118,7 +144,8 @@ class SignalAnnotationView(QGraphicsView):
         self.scene.addItem(text_item)
         self.annotation_items.append(weakref.ref(text_item))
 
-    def update_annotation(self, start_idx, end_idx, semantic_category, value_semantic_category, color_semantic_category):
+    def update_annotation(self, start_idx, end_idx, semantic_category, value_semantic_category,
+                          color_semantic_category):
         # print(start_idx, end_idx, semantic_category, value_semantic_category, color_semantic_category)
         if semantic_category and color_semantic_category is not None:
             length_signal = len(self.signal_data)
@@ -133,7 +160,6 @@ class SignalAnnotationView(QGraphicsView):
 
             # annotation_ranges = get_annotation_ranges(self.selected_annotation["Comprehensive-Category"])
             # print(f"update_annotation:{annotation_ranges}")
-
 
     def _create_sequence(self, length_signal, start_idx, end_idx):
         sequence = [0] * length_signal
@@ -154,17 +180,20 @@ class SignalAnnotationView(QGraphicsView):
 
     def _draw_background_grid(self):
         grid_pen = QPen(QColor(200, 200, 200), 1, Qt.DotLine)
-        grid_spacing = 100 * self.scale_factor
+
+
+        grid_spacing_horizontal = 100 * self.scale_factor  # 水平缩放
+        grid_spacing_vertical = 100  # 垂直方向保持不变
 
         scaled_width = (self.width() - 2 * self.margin_side) * self.scale_factor
         scaled_height = self.height() - self.margin_bottom - self.margin_top
 
-        for x in range(self.margin_side, int(self.margin_side + scaled_width), int(grid_spacing)):
+        for x in range(self.margin_side, int(self.margin_side + scaled_width), int(grid_spacing_horizontal)):
             line = QGraphicsLineItem(QLineF(x, self.margin_top, x, self.margin_top + scaled_height))
             line.setPen(grid_pen)
             self.scene.addItem(line)
 
-        for y in range(self.margin_top, int(scaled_height + self.margin_top), int(grid_spacing)):
+        for y in range(self.margin_top, int(scaled_height + self.margin_top), int(grid_spacing_vertical)):
             line = QGraphicsLineItem(QLineF(self.margin_side, y, self.margin_side + scaled_width, y))
             line.setPen(grid_pen)
             self.scene.addItem(line)
@@ -178,10 +207,14 @@ class SignalAnnotationView(QGraphicsView):
         scaled_height = self.height() - self.margin_bottom - self.margin_top
 
         # Draw axes
-        self._draw_line(QLineF(self.margin_side, self.margin_top, self.margin_side, self.margin_top + scaled_height), axis_pen)
-        self._draw_line(QLineF(self.margin_side, self.margin_top + scaled_height, self.margin_side + scaled_width, self.margin_top + scaled_height), axis_pen)
-        self._draw_line(QLineF(self.margin_side, self.margin_top, self.margin_side + scaled_width, self.margin_top), axis_pen)
-        self._draw_line(QLineF(self.margin_side + scaled_width, self.margin_top, self.margin_side + scaled_width, self.margin_top + scaled_height), axis_pen)
+        self._draw_line(QLineF(self.margin_side, self.margin_top, self.margin_side, self.margin_top + scaled_height),
+                        axis_pen)
+        self._draw_line(QLineF(self.margin_side, self.margin_top + scaled_height, self.margin_side + scaled_width,
+                               self.margin_top + scaled_height), axis_pen)
+        self._draw_line(QLineF(self.margin_side, self.margin_top, self.margin_side + scaled_width, self.margin_top),
+                        axis_pen)
+        self._draw_line(QLineF(self.margin_side + scaled_width, self.margin_top, self.margin_side + scaled_width,
+                               self.margin_top + scaled_height), axis_pen)
 
         # Draw labels
         self._draw_text("Amplitude", QPointF(10, self.margin_top + scaled_height / 2 - 20), -90)
@@ -196,7 +229,9 @@ class SignalAnnotationView(QGraphicsView):
 
         tick_positions = np.linspace(self.margin_side, self.margin_side + scaled_width, 6)
         for i, pos in enumerate(tick_positions):
-            self._draw_line(QLineF(pos, self.margin_top + scaled_height, pos, self.margin_top + scaled_height + tick_length), tick_pen)
+            self._draw_line(
+                QLineF(pos, self.margin_top + scaled_height, pos, self.margin_top + scaled_height + tick_length),
+                tick_pen)
             self._draw_text(f"{i / 5:.1f}", QPointF(pos - 10, self.margin_top + scaled_height + 5))
 
     def _draw_line(self, line, pen):
@@ -225,7 +260,8 @@ class SignalAnnotationView(QGraphicsView):
             previous_point = current_point
 
     def _to_scene_y_coords(self, y):
-        return self.margin_top + ((y - self.min_y) / (self.max_y - self.min_y)) * (self.height() - self.margin_bottom - self.margin_top)
+        return self.margin_top + ((y - self.min_y) / (self.max_y - self.min_y)) * (
+                    self.height() - self.margin_bottom - self.margin_top)
 
     def _get_clamped_x(self, x):
         total_width = (self.width() - self.margin_side * 2) * self.scale_factor + self.margin_side * 2
@@ -235,7 +271,7 @@ class SignalAnnotationView(QGraphicsView):
         if event.button() == Qt.LeftButton and self.is_annotation:
             self.start_point = self.mapToScene(event.pos())
             clamped_x = self._get_clamped_x(self.start_point.x())
-            top_left = QPointF(clamped_x, 0)
+            top_left = QPointF(clamped_x, self.margin_top)
             bottom_right = QPointF(clamped_x, self.height() - self.margin_bottom)
             self.rect_item = QGraphicsRectItem(QRectF(top_left, bottom_right))
             self.rect_item.setPen(QPen(Qt.red, 2))
@@ -275,7 +311,8 @@ class SignalAnnotationView(QGraphicsView):
         if end_idx > start_idx:
             self.open_label_selection_dialog()
             self.scene.removeItem(self.rect_item)
-            self.update_annotation(start_idx, end_idx, self.current_semantic_category, self.current_value_semantic_category, self.current_color_semantic_category)
+            self.update_annotation(start_idx, end_idx, self.current_semantic_category,
+                                   self.current_value_semantic_category, self.current_color_semantic_category)
             self.show_selected_annotation()
 
     def open_label_selection_dialog(self):
@@ -297,7 +334,6 @@ class SignalAnnotationView(QGraphicsView):
         self._update_view()
 
 
-
 enabled_button_style = (
     "color: rgb(255, 255, 255);"
     "font: 25pt 'Bahnschrift Condensed';"
@@ -314,14 +350,29 @@ disabled_button_style = (
 
 
 class FaultDetectionPage(QMainWindow, Ui_main):
-    VERSION='2.0.1'
-    def __init__(self,parent=None):
+    VERSION = '2.0.4'
+
+    def __init__(self, parent=None):
         super(FaultDetectionPage, self).__init__()
         self.setupUi(self)
         if parent is not None:
-            self.parent=parent
+            self.parent = parent
+        self.center()
         self.init_ui_elements()
         self.refresh_comtrade_list()
+
+    def center(self):
+        # 获取主窗口的矩形几何信息
+        qr = self.frameGeometry()
+
+        # 获取屏幕中心点
+        cp = QDesktopWidget().availableGeometry().center()
+
+        # 将主窗口的矩形几何信息移动到屏幕中心
+        qr.moveCenter(cp)
+
+        # 移动窗口的位置到矩形的左上角，这样窗口就居中显示了
+        self.move(qr.topLeft())
 
     def refresh_comtrade_list(self):
 
@@ -335,25 +386,24 @@ class FaultDetectionPage(QMainWindow, Ui_main):
                and load_annotation(os.path.join(self.path_ann, filename)).get('fault_detection')
         ]
         # 更新列表小部件
-        self.update_list_widget(listwidget=self.comtrade_list_widget, item_list=self.raw_files, highlighted_items=highlighted_items)
+        self.update_list_widget(listwidget=self.comtrade_list_widget, item_list=self.raw_files,
+                                highlighted_items=highlighted_items)
 
     def init_ui_elements(self):
         self.root_project = get_parent_directory(levels_up=1)
         self.path_config = os.path.join(self.root_project, 'config')
-        self.path_raw = os.path.join(self.root_project,'tmp', 'raw')
-        self.path_ann = os.path.join(self.root_project, 'tmp','ann')
+        self.path_raw = os.path.join(self.root_project, 'tmp', 'raw')
+        self.path_ann = os.path.join(self.root_project, 'tmp', 'ann')
 
         for path in [self.path_raw, self.path_ann]:
             os.makedirs(path, exist_ok=True)
 
         self.set_window_properties()
-        self.comtrade_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.comtrade_list_widget.itemClicked.connect(self.refresh_channel_list)
         self.channel_list_widget.itemClicked.connect(self.display_selected_channel_waveform)
         self._connect_button_signals()
         self._set_buttons_enabled(False, [self.button_annotate, self.button_confirm])
         self._set_buttons_enabled(True, [self.button_clear, self.button_return])
-
 
     def set_window_properties(self):
         self.setWindowIcon(QIcon(os.path.join(self.root_project, 'resource', 'WindowIcon.png')))
@@ -362,12 +412,10 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         self.status_label = QLabel("")
         self.statusBar.addWidget(self.status_label)
 
-
-
     def _connect_button_signals(self):
         buttons_and_actions = {
-            self.button_zoom_in:self.zoom_in,
-            self.button_zoom_out:self.zoom_out,
+            self.button_zoom_in: self.zoom_in,
+            self.button_zoom_out: self.zoom_out,
             self.button_confirm: self.confirm,
             self.button_annotate: self.annotate,
             self.button_return: self.return_to_main,
@@ -375,7 +423,6 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         }
         for button, action in buttons_and_actions.items():
             button.clicked.connect(action)
-
 
     def set_button_style(self, button, enable=True):
         button.setStyleSheet(enabled_button_style if enable else disabled_button_style)
@@ -389,9 +436,6 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         self._set_buttons_enabled(True, [self.button_confirm, self.button_zoom_in, self.button_zoom_out])
         # 显示选中的注释
         self.signal_view.is_annotation = True
-
-
-
 
     def confirm(self):
         self._set_widgets_enabled(True, [self.comtrade_list_widget, self.channel_list_widget])
@@ -415,7 +459,6 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.zoom_out()
 
-
     def clear(self):
         self._set_buttons_enabled(False, [self.button_annotate, self.button_confirm, self.button_return])
         warning_dialog = WarningDialog(self)
@@ -430,22 +473,20 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         self.set_button_style(self.button_return, True)
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
-            self.signal_view=None
-
-
+            self.signal_view = None
 
     def display_selected_channel_waveform(self):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
-            self.signal_view=None
+            self.signal_view = None
         self.selected_channel = self.channel_list_widget.currentItem().text()
-        self.selected_comtrade_info["selected_channel"]=self.selected_channel
-        self.selected_comtrade_info["selected_comtrade_filename"]=self.selected_comtrade_filename
+        self.selected_comtrade_info["selected_channel"] = self.selected_channel
+        self.selected_comtrade_info["selected_comtrade_filename"] = self.selected_comtrade_filename
 
-        self.signal_view = SignalAnnotationView(parent=self.label_container,selected_comtrade_info=self.selected_comtrade_info)
+        self.signal_view = SignalAnnotationView(parent=self.label_container,
+                                                selected_comtrade_info=self.selected_comtrade_info)
         self.set_button_style(self.button_annotate, True)
         self.signal_view.show()
-
 
     def update_list_widget(self, listwidget, item_list, highlighted_items=[]):
         # 清空列表小部件
@@ -466,23 +507,27 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         self.deleteLater()
 
     def refresh_channel_list(self):
+        self.set_button_style(self.button_annotate, False)
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
-            self.signal_view=None
+            self.signal_view = None
         self.selected_comtrade_filename = self.comtrade_list_widget.currentItem().text()
-        self.selected_comtrade_info=get_info_comtrade(path_raw=self.path_raw,path_ann=self.path_ann,selected_comtrade_filename=self.selected_comtrade_filename)
+        self.selected_comtrade_info = get_info_comtrade(path_raw=self.path_raw, path_ann=self.path_ann,
+                                                        selected_comtrade_filename=self.selected_comtrade_filename)
 
         annotation = load_annotation(os.path.join(self.path_ann, self.selected_comtrade_filename))
-        annotated_channels=list(annotation['fault_detection'].keys())
+        annotated_channels = list(annotation['fault_detection'].keys())
         self.analog_channel_ids = self.selected_comtrade_info["channels_info"]['analog_channel_ids']
-        self.update_list_widget(listwidget=self.channel_list_widget, item_list=self.analog_channel_ids, highlighted_items=annotated_channels)
+        self.update_list_widget(listwidget=self.channel_list_widget, item_list=self.analog_channel_ids,
+                                highlighted_items=annotated_channels)
 
     def refresh_channel_annotations(self):
         annotation = load_annotation(os.path.join(self.path_ann, self.selected_comtrade_filename))
 
-        analog_channel_ids=self.selected_comtrade_info["channels_info"]["analog_channel_ids"]
+        analog_channel_ids = self.selected_comtrade_info["channels_info"]["analog_channel_ids"]
         annotated_channels = list(annotation['fault_detection'].keys())
-        self.update_list_widget(listwidget=self.channel_list_widget, item_list=analog_channel_ids, highlighted_items=annotated_channels)
+        self.update_list_widget(listwidget=self.channel_list_widget, item_list=analog_channel_ids,
+                                highlighted_items=annotated_channels)
 
     def _set_buttons_enabled(self, enable, buttons):
         for button in buttons:
@@ -502,7 +547,11 @@ class FaultDetectionPage(QMainWindow, Ui_main):
 
     def return_to_main(self):
         self.close()
-        self.parent.show()
+        try:
+            self.parent.show()
+        except:
+            logger.error('缺少父类')
+
 
 if __name__ == '__main__':
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)

@@ -16,7 +16,7 @@ def create_batch_file():
     main_path = os.path.abspath(os.path.join(current_folder_path, "../__main__.py"))
 
     bat_content = f"""@echo off
-start /B D:\Program\Anaconda\envs\pure_pyqt\python.exe "{main_path}"
+start /B D:\Program\Anaconda\envs\pure_pyqt\pythonw.exe "{main_path}"
 """
 
     # 直接在batch-generate文件夹中创建.bat文件

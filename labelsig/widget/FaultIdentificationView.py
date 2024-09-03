@@ -1,29 +1,49 @@
+import logging
 import os
+filename = os.path.splitext(os.path.basename(__file__))[0]
+if not logging.getLogger().hasHandlers():  # 检查是否已配置
+    logging.basicConfig(
+        level=logging.INFO,  # 辅助程序可以设置不同的日志级别
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[
+            logging.FileHandler(f"{filename}.log"),
+            logging.StreamHandler()
+        ]
+    )
+logger = logging.getLogger(filename)
+
 import weakref
+
 import numpy as np
-from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal, QLineF
-from PyQt5.QtGui import QPen, QColor, QPainter,QTransform,QIcon, QImage, QPixmap,QFont
+from PyQt5.QtCore import Qt, QRectF, QPointF, QLineF
+from PyQt5.QtGui import QPen, QColor, QPainter, QIcon, QFont
 from PyQt5.QtWidgets import (
-    QGraphicsView, QGraphicsScene, QGraphicsLineItem,QMessageBox,QDialog,
-    QGraphicsRectItem, QApplication, QGraphicsSimpleTextItem, QMainWindow, QVBoxLayout, QWidget, QHBoxLayout, QPushButton,QLabel, QScrollArea, QListWidgetItem
+    QGraphicsView, QGraphicsScene, QGraphicsLineItem, QDialog,QDesktopWidget,
+    QGraphicsRectItem, QApplication, QGraphicsSimpleTextItem, QMainWindow, QLabel, QListWidgetItem
 )
+
+from labelsig.ui_generated.ui_fault_identification_view import Ui_main
+from labelsig.utils.utils_annotation import write_annotation, load_annotation
+from labelsig.utils.utils_comtrade import get_info_comtrade
+from labelsig.utils.utils_general import get_annotation_ranges, get_sorted_unique_file_basenames, get_parent_directory
+from labelsig.widget.CountdownWarningView import WarningDialog
 from labelsig.widget.LabelManagementView import LabelManagementDialog
 
-from labelsig.widget.CountdownWarningView import WarningDialog
-from labelsig.ui_generated.ui_fault_identification_view import Ui_main
 
-from labelsig.utils.utils_general import get_annotation_ranges,get_sorted_unique_file_basenames,get_parent_directory
-from labelsig.utils.utils_annotation import write_annotation,load_annotation
-from labelsig.utils.utils_comtrade import get_info_comtrade
 
 class SignalAnnotationView(QGraphicsView):
 
     def __init__(self, parent=None, selected_comtrade_info=None):
         super(SignalAnnotationView, self).__init__(parent)
-        self.scale_factor = 1 / 1.2  # Initial scale factor
+        self.horizontal_scale_factor = 1 / 1.1  # Initial scale factor
+
         self.margin_side = 50  # Space for both left and right margins
         self.margin_top = 20  # Space for x-axis
         self.margin_bottom = 50  # Space for x-axis
+
+        self.setStyleSheet("QGraphicsView { padding: 10px; margin: 0px; }")
+
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.setGeometry(0, 0, self.parentWidget().width(), self.parentWidget().height())
@@ -58,20 +78,24 @@ class SignalAnnotationView(QGraphicsView):
 
     def _initialize_scene(self):
         """Initializes the background grid, axes, and signal."""
+        scene_width = self.width() * self.horizontal_scale_factor  # 增加额外空间
+        scene_height = self.height()  # 增加额外空间
+        self.scene.setSceneRect(0, 0, scene_width, scene_height)
         self._draw_background_grid()
         self._draw_axes()
         self._draw_signal()
+        self.resetTransform()  # 重置之前的缩放，防止累积缩放
+        self.scale(1, 0.90)  # 仅在垂直方向上缩放
 
     def show_selected_annotation_multi_category(self):
         # 清除现有的注释
         try:
             self._clear_existing_annotations()
         except:
-            print("self._clear_existing_annotations()出错")
+            logger.error("self._clear_existing_annotations()出错")
 
         if 'Semantic-Category' in self.selected_annotation:
             semantic_categories = [category for category in self.selected_annotation if category not in ['Semantic-Category', 'Comprehensive-Category',"Background"]]
-
             num_semantic_categories=len(semantic_categories)
             id_semantic_category = 1
             for semantic_category in semantic_categories:
@@ -87,18 +111,13 @@ class SignalAnnotationView(QGraphicsView):
                 id_semantic_category += 1
 
 
-
-
-
-
     def _clear_existing_annotations(self):
         """清除现有的注释图形对象。"""
         for item_ref in self.annotation_items:
             item = item_ref()  # 获取弱引用对象
             if item is not None and item.scene() is not None:  # 确保item仍然存在于场景中
                 self.scene.removeItem(item)
-        # 移除无效的弱引用
-        self.annotation_items = [item_ref for item_ref in self.annotation_items if item_ref() is not None]
+        self.annotation_items.clear()  # 清空列表
 
     def _draw_annotation_segment(self, start_idx, end_idx, value,id_category,num_categories):
         start_x = self.time_values[start_idx]
@@ -190,17 +209,19 @@ class SignalAnnotationView(QGraphicsView):
 
     def _draw_background_grid(self):
         grid_pen = QPen(QColor(200, 200, 200), 1, Qt.DotLine)
-        grid_spacing = 100 * self.scale_factor
 
-        scaled_width = (self.width() - 2 * self.margin_side) * self.scale_factor
+        grid_spacing_horizontal = 100 * self.horizontal_scale_factor  # 水平缩放
+        grid_spacing_vertical = 100  # 垂直方向保持不变
+
+        scaled_width = (self.width() - 2 * self.margin_side) * self.horizontal_scale_factor
         scaled_height = self.height() - self.margin_bottom - self.margin_top
 
-        for x in range(self.margin_side, int(self.margin_side + scaled_width), int(grid_spacing)):
+        for x in range(self.margin_side, int(self.margin_side + scaled_width), int(grid_spacing_horizontal)):
             line = QGraphicsLineItem(QLineF(x, self.margin_top, x, self.margin_top + scaled_height))
             line.setPen(grid_pen)
             self.scene.addItem(line)
 
-        for y in range(self.margin_top, int(scaled_height + self.margin_top), int(grid_spacing)):
+        for y in range(self.margin_top, int(scaled_height + self.margin_top), int(grid_spacing_vertical)):
             line = QGraphicsLineItem(QLineF(self.margin_side, y, self.margin_side + scaled_width, y))
             line.setPen(grid_pen)
             self.scene.addItem(line)
@@ -210,7 +231,7 @@ class SignalAnnotationView(QGraphicsView):
         tick_pen = QPen(Qt.black, 1)
         tick_length = 5
 
-        scaled_width = (self.width() - 2 * self.margin_side) * self.scale_factor
+        scaled_width = (self.width() - 2 * self.margin_side) * self.horizontal_scale_factor
         scaled_height = self.height() - self.margin_bottom - self.margin_top
 
         # Draw axes
@@ -251,7 +272,7 @@ class SignalAnnotationView(QGraphicsView):
         pen = QPen(Qt.blue, 2)
         previous_point = None
 
-        total_width = (self.width() - self.margin_side * 2) * self.scale_factor + self.margin_side * 2
+        total_width = (self.width() - self.margin_side * 2) * self.horizontal_scale_factor + self.margin_side * 2
         self.time_values = np.linspace(self.margin_side, total_width - self.margin_side, len(self.signal_data))
 
         for i, y in enumerate(self.signal_data):
@@ -264,14 +285,14 @@ class SignalAnnotationView(QGraphicsView):
         return self.margin_top + ((y - self.min_y) / (self.max_y - self.min_y)) * (self.height() - self.margin_bottom - self.margin_top)
 
     def _get_clamped_x(self, x):
-        total_width = (self.width() - self.margin_side * 2) * self.scale_factor + self.margin_side * 2
+        total_width = (self.width() - self.margin_side * 2) * self.horizontal_scale_factor + self.margin_side * 2
         return max(self.margin_side, min(x, total_width - self.margin_side))
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton and self.is_annotation:
             self.start_point = self.mapToScene(event.pos())
             clamped_x = self._get_clamped_x(self.start_point.x())
-            top_left = QPointF(clamped_x, 0)
+            top_left = QPointF(clamped_x, self.margin_top)
             bottom_right = QPointF(clamped_x, self.height() - self.margin_bottom)
             self.rect_item = QGraphicsRectItem(QRectF(top_left, bottom_right))
             self.rect_item.setPen(QPen(Qt.red, 2))
@@ -290,7 +311,7 @@ class SignalAnnotationView(QGraphicsView):
                 pass
             clamped_x = self._get_clamped_x(self.mapToScene(event.pos()).x())
             left_x = max(self.margin_side, self.start_point.x())
-            total_width = (self.width() - self.margin_side * 2) * self.scale_factor + self.margin_side * 2
+            total_width = (self.width() - self.margin_side * 2) * self.horizontal_scale_factor + self.margin_side * 2
             right_x = min(total_width - self.margin_side, clamped_x)
             if left_x < right_x:
                 self.rect_item.setRect(
@@ -328,11 +349,12 @@ class SignalAnnotationView(QGraphicsView):
         self.current_color_semantic_category = color_semantic_category
 
     def zoom_in(self):
-        self.scale_factor *= 1.2
+        self.horizontal_scale_factor *= 1.2
         self._update_view()
 
+
     def zoom_out(self):
-        self.scale_factor /= 1.2
+        self.horizontal_scale_factor /= 1.2
         self._update_view()
 
 
@@ -354,14 +376,28 @@ disabled_button_style = (
 
 
 class FaultIdentificationPage(QMainWindow, Ui_main):
-    VERSION='2.0.1'
+    VERSION='2.0.4'
     def __init__(self,parent=None):
         super(FaultIdentificationPage, self).__init__()
         self.setupUi(self)
         if parent is not None:
             self.parent=parent
+        self.center()
         self.init_ui_elements()
         self.refresh_comtrade_list()
+
+    def center(self):
+        # 获取主窗口的矩形几何信息
+        qr = self.frameGeometry()
+
+        # 获取屏幕中心点
+        cp = QDesktopWidget().availableGeometry().center()
+
+        # 将主窗口的矩形几何信息移动到屏幕中心
+        qr.moveCenter(cp)
+
+        # 移动窗口的位置到矩形的左上角，这样窗口就居中显示了
+        self.move(qr.topLeft())
 
     def refresh_comtrade_list(self):
         # 获取原始文件和注释文件的唯一基本名称列表
@@ -377,6 +413,7 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
         self.update_list_widget(listwidget=self.comtrade_list_widget, item_list=self.raw_files, highlighted_items=highlighted_items)
 
     def init_ui_elements(self):
+
         self.root_project = get_parent_directory(levels_up=1)
         self.path_config = os.path.join(self.root_project, 'config')
         self.path_raw = os.path.join(self.root_project,'tmp', 'raw')
@@ -539,9 +576,13 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
 
     def return_to_main(self):
         self.close()
-        self.parent.show()
+        try:
+            self.parent.show()
+        except:
+            logger.error('缺少父类，无法返回上级')
 
 if __name__ == '__main__':
+
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     app = QApplication([])
     MainWindow = FaultIdentificationPage()

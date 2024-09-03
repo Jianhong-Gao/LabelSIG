@@ -5,10 +5,17 @@ sys.path.append(added_path)
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
+import logging
+
+logging.basicConfig(level=logging.DEBUG,
+                    filename=f"LabelSIG.log",
+                    filemode='a',
+                    format='%(asctime)s - %(levelname)s - [%(name)s] %(message)s')
+logger = logging.getLogger("LabelSIG")
+
 
 from labelsig.widget.MainView import MainWindow
 from labelsig.utils import get_parent_directory
-
 
 def main():
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
@@ -22,7 +29,7 @@ def main():
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
-
     main()
+
 
 

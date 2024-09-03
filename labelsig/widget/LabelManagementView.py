@@ -80,12 +80,12 @@ class LabelManagementDialog(QDialog, Ui_input_dialog):
     def __init__(self,class_label =['标签1', '标签2', '标签3']):
         super(LabelManagementDialog, self).__init__()
         self.setupUi(self)
-        self.root_labelsig = get_parent_directory(levels_up=1)
-        self.path_tmp = os.path.join(self.root_labelsig, 'tmp')
-        self.path_raw = os.path.join(self.path_tmp, 'raw')
-        self.path_annotation = os.path.join(self.path_tmp, 'annotation')
-        self.path_config = os.path.join(self.root_labelsig, 'config')
-        self.path_resource=os.path.join(self.root_labelsig,'resource')
+        self.root_project = get_parent_directory(levels_up=1)
+
+        self.path_raw = os.path.join(self.root_project,'tmp', 'raw')
+        self.path_ann = os.path.join(self.root_project,'tmp', 'ann')
+        self.path_config = os.path.join(self.root_project, 'config')
+        self.path_resource=os.path.join(self.root_project,'resource')
         self.annotation_config = read_or_create_file(self.path_config, "Annotation.config")
         self.class_label = self.annotation_config.keys()
 
