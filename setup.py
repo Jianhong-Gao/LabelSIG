@@ -12,14 +12,11 @@ def get_version():
 
 def get_install_requires():
     install_requires = [
-        "github2pypi==1.0.0",
-        "matplotlib==3.8.0",
         "numpy==1.26.1",
         "PyQt5==5.15.11",
         "PyQt5_sip==12.15.0",
         "pywin32==306",
         "QtPy==2.4.1",
-        "setuptools==68.0.0",
     ]
     return install_requires
 
