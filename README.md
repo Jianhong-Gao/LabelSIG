@@ -49,7 +49,7 @@ You need install [Anaconda](https://www.continuum.io/downloads), then run below:
 Install [Anaconda](https://www.continuum.io/downloads), then in an Anaconda Prompt run:
 
 ```bash
-conda create --name=LabeSIG python=3
+conda create --name=LabeSIG python=3.9
 conda activate LabeSIG
 pip install LabeSIG
 ```
