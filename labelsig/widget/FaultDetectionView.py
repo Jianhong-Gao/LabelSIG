@@ -453,7 +453,7 @@ class FaultDetectionPage(QMainWindow, Ui_main):
     def zoom_in(self):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.zoom_in()
-            self.button_zoom_out.clicked.connect(self.signal_view.zoom_out)
+
 
     def zoom_out(self):
         if hasattr(self, 'signal_view') and self.signal_view is not None:

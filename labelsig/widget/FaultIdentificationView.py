@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 filename = os.path.splitext(os.path.basename(__file__))[0]
 if not logging.getLogger().hasHandlers():  # 检查是否已配置
     logging.basicConfig(
@@ -350,12 +351,16 @@ class SignalAnnotationView(QGraphicsView):
 
     def zoom_in(self):
         self.horizontal_scale_factor *= 1.2
+        time_start=time.time()
         self._update_view()
+        logger.info(f"zoom_in:{format(time.time()-time_start),'.2f'}s")
 
 
     def zoom_out(self):
         self.horizontal_scale_factor /= 1.2
+        time_start=time.time()
         self._update_view()
+        logger.info(f"zoom_out:{format(time.time()-time_start),'.2f'}s")
 
 
 
@@ -485,7 +490,7 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
     def zoom_in(self):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.zoom_in()
-            self.button_zoom_out.clicked.connect(self.signal_view.zoom_out)
+
 
     def zoom_out(self):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
