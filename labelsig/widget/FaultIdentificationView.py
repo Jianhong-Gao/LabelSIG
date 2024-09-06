@@ -31,14 +31,28 @@ from labelsig.utils.utils_general import get_annotation_ranges, get_sorted_uniqu
 from labelsig.widget.CountdownWarningView import WarningDialog
 from labelsig.widget.LabelManagementView import LabelManagementDialog
 
+import numpy as np
 
+from scipy.signal import butter, filtfilt
+
+def butter_lowpass(cutoff, fs, order=5):
+    nyquist = 0.5 * fs  # 奈奎斯特频率
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+# 应用滤波器
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = filtfilt(b, a, data)
+    return y
 
 class SignalAnnotationView(QGraphicsView):
 
     def __init__(self, parent=None, selected_comtrade_info=None):
         super(SignalAnnotationView, self).__init__(parent)
         self.horizontal_scale_factor = 1 / 1.1  # Initial scale factor
-
+        self.is_annotation = False
         self.margin_side = 50  # Space for both left and right margins
         self.margin_top = 20  # Space for x-axis
         self.margin_bottom = 50  # Space for x-axis
@@ -58,7 +72,7 @@ class SignalAnnotationView(QGraphicsView):
         self.path_raw = os.path.join(self.root_project, 'tmp', 'raw')
         self.path_ann = os.path.join(self.root_project, 'tmp', 'ann')
 
-        self.is_annotation = False
+
 
         self.channels_info = selected_comtrade_info['channels_info']
         self.selected_comtrade_filename = selected_comtrade_info['selected_comtrade_filename']
@@ -66,6 +80,7 @@ class SignalAnnotationView(QGraphicsView):
         self.signal_data = np.array(self.channels_info['analog_channel_values'][
             self.channels_info['analog_channel_ids'].index(self.selected_channel)
         ]) * 1000
+        self.signal_data=butter_lowpass_filter(data=self.signal_data, cutoff=1000, fs=5000, order=8)
         self.sampling_rate = selected_comtrade_info['sampling_rate']
 
         annotation = load_annotation(os.path.join(self.path_ann, self.selected_comtrade_filename))
@@ -227,6 +242,36 @@ class SignalAnnotationView(QGraphicsView):
             line.setPen(grid_pen)
             self.scene.addItem(line)
 
+    def _draw_time_ticks(self):
+        """Draw time ticks on the X-axis based on the signal length and sampling rate."""
+        tick_pen = QPen(Qt.black, 1)
+        tick_length = 5
+
+        # Calculate the total width based on horizontal scale factor
+        scaled_width = (self.width() - 2 * self.margin_side) * self.horizontal_scale_factor
+
+        # Determine the number of ticks based on the scaled width
+        num_ticks = int(scaled_width / 100)  # Adjust the number of ticks; change 100 for finer/coarser ticks
+
+        # Calculate the total duration of the signal in seconds
+        time_duration = len(self.signal_data) / self.sampling_rate
+
+        # Determine the time interval between ticks
+        tick_interval = time_duration / num_ticks
+
+        # Calculate tick positions along the X-axis
+        tick_positions = np.linspace(self.margin_side, self.margin_side + scaled_width, num_ticks)
+
+        for i, pos in enumerate(tick_positions):
+            # Calculate the time value for each tick
+            tick_time = i * tick_interval*1000
+            # Draw the tick line
+            self._draw_line(
+                QLineF(pos, self.height() - self.margin_bottom, pos, self.height() - self.margin_bottom + tick_length),
+                tick_pen)
+            # Draw the time label
+            self._draw_text(f"{int(tick_time)}", QPointF(pos - 10, self.height() - self.margin_bottom + 5))
+
     def _draw_axes(self):
         axis_pen = QPen(Qt.black, 2)
         tick_pen = QPen(Qt.black, 1)
@@ -235,27 +280,25 @@ class SignalAnnotationView(QGraphicsView):
         scaled_width = (self.width() - 2 * self.margin_side) * self.horizontal_scale_factor
         scaled_height = self.height() - self.margin_bottom - self.margin_top
 
-        # Draw axes
-        self._draw_line(QLineF(self.margin_side, self.margin_top, self.margin_side, self.margin_top + scaled_height), axis_pen)
-        self._draw_line(QLineF(self.margin_side, self.margin_top + scaled_height, self.margin_side + scaled_width, self.margin_top + scaled_height), axis_pen)
-        self._draw_line(QLineF(self.margin_side, self.margin_top, self.margin_side + scaled_width, self.margin_top), axis_pen)
-        self._draw_line(QLineF(self.margin_side + scaled_width, self.margin_top, self.margin_side + scaled_width, self.margin_top + scaled_height), axis_pen)
+        # Draw Y axis and its labels
+        self._draw_line(QLineF(self.margin_side, self.margin_top, self.margin_side, self.margin_top + scaled_height),
+                        axis_pen)
+        self._draw_line(QLineF(self.margin_side, self.margin_top + scaled_height, self.margin_side + scaled_width,
+                               self.margin_top + scaled_height), axis_pen)
 
-        # Draw labels
+        # Draw labels for Y-axis
         self._draw_text("Amplitude", QPointF(10, self.margin_top + scaled_height / 2 - 20), -90)
-        self._draw_text("Time (s)", QPointF(self.margin_side + scaled_width / 2 - 30, self.height() - 30))
+        self._draw_text("Time (ms)", QPointF(self.margin_side + scaled_width / 2 - 30, self.height() - 30))
 
-        # Draw ticks and labels
+        # Draw Y-axis ticks and labels
         y_ticks = np.linspace(self.min_y, self.max_y, 5)
         for y in y_ticks:
             scene_y = self._to_scene_y_coords(y)
             self._draw_line(QLineF(self.margin_side - tick_length, scene_y, self.margin_side, scene_y), tick_pen)
-            self._draw_text(f"{y:.1f}", QPointF(self.margin_side - 40, scene_y - 10))
+            self._draw_text(f"{int(y):.1f}", QPointF(self.margin_side - 40, scene_y - 10))
 
-        tick_positions = np.linspace(self.margin_side, self.margin_side + scaled_width, 6)
-        for i, pos in enumerate(tick_positions):
-            self._draw_line(QLineF(pos, self.margin_top + scaled_height, pos, self.margin_top + scaled_height + tick_length), tick_pen)
-            self._draw_text(f"{i / 5:.1f}", QPointF(pos - 10, self.margin_top + scaled_height + 5))
+        # Draw time ticks on the X-axis
+        self._draw_time_ticks()  # 添加这一行来绘制时间刻度
 
     def _draw_line(self, line, pen):
         line_item = QGraphicsLineItem(line)
@@ -283,7 +326,9 @@ class SignalAnnotationView(QGraphicsView):
             previous_point = current_point
 
     def _to_scene_y_coords(self, y):
-        return self.margin_top + ((y - self.min_y) / (self.max_y - self.min_y)) * (self.height() - self.margin_bottom - self.margin_top)
+        return self.margin_top + (1 - (y - self.min_y) / (self.max_y - self.min_y)) * (
+                    self.height() - self.margin_bottom - self.margin_top)
+
 
     def _get_clamped_x(self, x):
         total_width = (self.width() - self.margin_side * 2) * self.horizontal_scale_factor + self.margin_side * 2
@@ -350,17 +395,22 @@ class SignalAnnotationView(QGraphicsView):
         self.current_color_semantic_category = color_semantic_category
 
     def zoom_in(self):
-        self.horizontal_scale_factor *= 1.2
+        self.horizontal_scale_factor *= 2
         time_start=time.time()
+
         self._update_view()
-        logger.info(f"zoom_in:{format(time.time()-time_start),'.2f'}s")
+
+        logger.info(f"zoom_in:{format(time.time()-time_start,'.2f')}s")
+
 
 
     def zoom_out(self):
-        self.horizontal_scale_factor /= 1.2
+        self.horizontal_scale_factor /= 2
         time_start=time.time()
+
         self._update_view()
-        logger.info(f"zoom_out:{format(time.time()-time_start),'.2f'}s")
+
+        logger.info(f"zoom_out:{format(time.time()-time_start,'.2f')}s")
 
 
 
@@ -428,7 +478,7 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
             os.makedirs(path, exist_ok=True)
 
         self.set_window_properties()
-        self.comtrade_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        # self.comtrade_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.comtrade_list_widget.itemClicked.connect(self.refresh_channel_list)
         self.channel_list_widget.itemClicked.connect(self.display_selected_channel_waveform)
         self._connect_button_signals()
@@ -489,12 +539,16 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
 
     def zoom_in(self):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
+            self._set_buttons_enabled(False, [self.button_zoom_in])
             self.signal_view.zoom_in()
+            self._set_buttons_enabled(True, [self.button_zoom_in])
 
 
     def zoom_out(self):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
+            self._set_buttons_enabled(False, [self.button_zoom_out])
             self.signal_view.zoom_out()
+            self._set_buttons_enabled(True, [self.button_zoom_out])
 
 
     def clear(self):
@@ -516,6 +570,7 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
 
 
     def display_selected_channel_waveform(self):
+        self.set_button_style(self.button_annotate, True)
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
         self.selected_channel = self.channel_list_widget.currentItem().text()
@@ -546,6 +601,7 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
         self.deleteLater()
 
     def refresh_channel_list(self):
+        self.set_button_style(self.button_annotate, False)
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
             self.signal_view=None
@@ -558,6 +614,7 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
         self.update_list_widget(listwidget=self.channel_list_widget, item_list=self.analog_channel_ids, highlighted_items=annotated_channels)
 
     def refresh_channel_annotations(self):
+
         annotation = load_annotation(os.path.join(self.path_ann, self.selected_comtrade_filename))
         analog_channel_ids=self.selected_comtrade_info["channels_info"]["analog_channel_ids"]
         annotated_channels = list(annotation['fault_identification'].keys())

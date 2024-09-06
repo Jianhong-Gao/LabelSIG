@@ -230,9 +230,12 @@ class SignalAnnotationView(QGraphicsView):
     def _to_scene_y_coords(self, y, min_val, max_val):
         """Converts a y value to scene coordinates based on the given min and max values."""
         if max_val == min_val:
-            return self.margin_top + (self.height() - self.margin_bottom - self.margin_top) / 2  # Center it vertically
-        return self.margin_top + ((y - min_val) / (max_val - min_val)) * (
-                    self.height() - self.margin_bottom - self.margin_top)
+            # Center it vertically if all y values are the same
+            return self.margin_top + (self.height() - self.margin_bottom - self.margin_top) / 2
+
+        # Reverse the y-axis mapping to ensure higher values are at the top
+        return self.margin_top + (1 - (y - min_val) / (max_val - min_val)) * (
+                self.height() - self.margin_bottom - self.margin_top)
 
     def _get_clamped_x(self, x):
         total_width = (self.width() - self.margin_side * 2) * self.scale_factor + self.margin_side * 2
@@ -279,11 +282,11 @@ class SignalAnnotationView(QGraphicsView):
         self.current_color_semantic_category = color_semantic_category
 
     def zoom_in(self):
-        self.scale_factor *= 1.2
+        self.scale_factor *= 2
         self._update_view()
 
     def zoom_out(self):
-        self.scale_factor /= 1.2
+        self.scale_factor /= 2
         self._update_view()
 
     def _redraw_scene(self):

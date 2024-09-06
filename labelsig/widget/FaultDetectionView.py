@@ -37,7 +37,7 @@ class SignalAnnotationView(QGraphicsView):
 
     def __init__(self, parent=None, selected_comtrade_info=None):
         super(SignalAnnotationView, self).__init__(parent)
-        self.scale_factor = 1/1.1  # Initial scale factor
+        self.horizontal_scale_factor = 1/1.1  # Initial scale factor
         self.margin_side = 50  # Space for both left and right margins
         self.margin_top = 10  # Space for x-axis
         self.margin_bottom = 50  # Space for x-axis
@@ -78,7 +78,7 @@ class SignalAnnotationView(QGraphicsView):
 
     def _initialize_scene(self):
         """Initializes the background grid, axes, and signal."""
-        scene_width = self.width() * self.scale_factor  # 增加额外空间
+        scene_width = self.width() * self.horizontal_scale_factor  # 增加额外空间
         scene_height = self.height()  # 增加额外空间
         self.scene.setSceneRect(0, 0, scene_width, scene_height)
 
@@ -182,10 +182,10 @@ class SignalAnnotationView(QGraphicsView):
         grid_pen = QPen(QColor(200, 200, 200), 1, Qt.DotLine)
 
 
-        grid_spacing_horizontal = 100 * self.scale_factor  # 水平缩放
+        grid_spacing_horizontal = 100 * self.horizontal_scale_factor  # 水平缩放
         grid_spacing_vertical = 100  # 垂直方向保持不变
 
-        scaled_width = (self.width() - 2 * self.margin_side) * self.scale_factor
+        scaled_width = (self.width() - 2 * self.margin_side) * self.horizontal_scale_factor
         scaled_height = self.height() - self.margin_bottom - self.margin_top
 
         for x in range(self.margin_side, int(self.margin_side + scaled_width), int(grid_spacing_horizontal)):
@@ -198,41 +198,63 @@ class SignalAnnotationView(QGraphicsView):
             line.setPen(grid_pen)
             self.scene.addItem(line)
 
+    def _draw_time_ticks(self):
+        """Draw time ticks on the X-axis based on the signal length and sampling rate."""
+        tick_pen = QPen(Qt.black, 1)
+        tick_length = 5
+
+        # Calculate the total width based on horizontal scale factor
+        scaled_width = (self.width() - 2 * self.margin_side) * self.horizontal_scale_factor
+
+        # Determine the number of ticks based on the scaled width
+        num_ticks = int(scaled_width / 100)  # Adjust the number of ticks; change 100 for finer/coarser ticks
+
+        # Calculate the total duration of the signal in seconds
+        time_duration = len(self.signal_data) / self.sampling_rate
+
+        # Determine the time interval between ticks
+        tick_interval = time_duration / num_ticks
+
+        # Calculate tick positions along the X-axis
+        tick_positions = np.linspace(self.margin_side, self.margin_side + scaled_width, num_ticks)
+
+        for i, pos in enumerate(tick_positions):
+            # Calculate the time value for each tick
+            tick_time = i * tick_interval*1000
+            # Draw the tick line
+            self._draw_line(
+                QLineF(pos, self.height() - self.margin_bottom, pos, self.height() - self.margin_bottom + tick_length),
+                tick_pen)
+            # Draw the time label
+            self._draw_text(f"{int(tick_time)}", QPointF(pos - 10, self.height() - self.margin_bottom + 5))
+
     def _draw_axes(self):
         axis_pen = QPen(Qt.black, 2)
         tick_pen = QPen(Qt.black, 1)
         tick_length = 5
 
-        scaled_width = (self.width() - 2 * self.margin_side) * self.scale_factor
+        scaled_width = (self.width() - 2 * self.margin_side) * self.horizontal_scale_factor
         scaled_height = self.height() - self.margin_bottom - self.margin_top
 
-        # Draw axes
+        # Draw Y axis and its labels
         self._draw_line(QLineF(self.margin_side, self.margin_top, self.margin_side, self.margin_top + scaled_height),
                         axis_pen)
         self._draw_line(QLineF(self.margin_side, self.margin_top + scaled_height, self.margin_side + scaled_width,
                                self.margin_top + scaled_height), axis_pen)
-        self._draw_line(QLineF(self.margin_side, self.margin_top, self.margin_side + scaled_width, self.margin_top),
-                        axis_pen)
-        self._draw_line(QLineF(self.margin_side + scaled_width, self.margin_top, self.margin_side + scaled_width,
-                               self.margin_top + scaled_height), axis_pen)
 
-        # Draw labels
+        # Draw labels for Y-axis
         self._draw_text("Amplitude", QPointF(10, self.margin_top + scaled_height / 2 - 20), -90)
-        self._draw_text("Time (s)", QPointF(self.margin_side + scaled_width / 2 - 30, self.height() - 30))
+        self._draw_text("Time (ms)", QPointF(self.margin_side + scaled_width / 2 - 30, self.height() - 30))
 
-        # Draw ticks and labels
+        # Draw Y-axis ticks and labels
         y_ticks = np.linspace(self.min_y, self.max_y, 5)
         for y in y_ticks:
             scene_y = self._to_scene_y_coords(y)
             self._draw_line(QLineF(self.margin_side - tick_length, scene_y, self.margin_side, scene_y), tick_pen)
-            self._draw_text(f"{y:.1f}", QPointF(self.margin_side - 40, scene_y - 10))
+            self._draw_text(f"{int(y):.1f}", QPointF(self.margin_side - 40, scene_y - 10))
 
-        tick_positions = np.linspace(self.margin_side, self.margin_side + scaled_width, 6)
-        for i, pos in enumerate(tick_positions):
-            self._draw_line(
-                QLineF(pos, self.margin_top + scaled_height, pos, self.margin_top + scaled_height + tick_length),
-                tick_pen)
-            self._draw_text(f"{i / 5:.1f}", QPointF(pos - 10, self.margin_top + scaled_height + 5))
+        # Draw time ticks on the X-axis
+        self._draw_time_ticks()  # 添加这一行来绘制时间刻度
 
     def _draw_line(self, line, pen):
         line_item = QGraphicsLineItem(line)
@@ -250,7 +272,7 @@ class SignalAnnotationView(QGraphicsView):
         pen = QPen(Qt.blue, 2)
         previous_point = None
 
-        total_width = (self.width() - self.margin_side * 2) * self.scale_factor + self.margin_side * 2
+        total_width = (self.width() - self.margin_side * 2) * self.horizontal_scale_factor + self.margin_side * 2
         self.time_values = np.linspace(self.margin_side, total_width - self.margin_side, len(self.signal_data))
 
         for i, y in enumerate(self.signal_data):
@@ -260,11 +282,11 @@ class SignalAnnotationView(QGraphicsView):
             previous_point = current_point
 
     def _to_scene_y_coords(self, y):
-        return self.margin_top + ((y - self.min_y) / (self.max_y - self.min_y)) * (
+        return self.margin_top + (1 - (y - self.min_y) / (self.max_y - self.min_y)) * (
                     self.height() - self.margin_bottom - self.margin_top)
 
     def _get_clamped_x(self, x):
-        total_width = (self.width() - self.margin_side * 2) * self.scale_factor + self.margin_side * 2
+        total_width = (self.width() - self.margin_side * 2) * self.horizontal_scale_factor + self.margin_side * 2
         return max(self.margin_side, min(x, total_width - self.margin_side))
 
     def mousePressEvent(self, event):
@@ -287,7 +309,7 @@ class SignalAnnotationView(QGraphicsView):
                 return
             clamped_x = self._get_clamped_x(self.mapToScene(event.pos()).x())
             left_x = max(self.margin_side, self.start_point.x())
-            total_width = (self.width() - self.margin_side * 2) * self.scale_factor + self.margin_side * 2
+            total_width = (self.width() - self.margin_side * 2) * self.horizontal_scale_factor + self.margin_side * 2
             right_x = min(total_width - self.margin_side, clamped_x)
             if left_x < right_x:
                 self.rect_item.setRect(
@@ -326,11 +348,11 @@ class SignalAnnotationView(QGraphicsView):
         self.current_color_semantic_category = color_semantic_category
 
     def zoom_in(self):
-        self.scale_factor *= 1.2
+        self.horizontal_scale_factor *= 2
         self._update_view()
 
     def zoom_out(self):
-        self.scale_factor /= 1.2
+        self.horizontal_scale_factor /= 2
         self._update_view()
 
 
