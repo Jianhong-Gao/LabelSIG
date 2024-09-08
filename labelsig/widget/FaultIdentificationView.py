@@ -1,18 +1,7 @@
 import logging
 import os
 import time
-filename = os.path.splitext(os.path.basename(__file__))[0]
-if not logging.getLogger().hasHandlers():  # 检查是否已配置
-    logging.basicConfig(
-        level=logging.INFO,  # 辅助程序可以设置不同的日志级别
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        handlers=[
-            logging.FileHandler(f"{filename}.log"),
-            logging.StreamHandler()
-        ]
-    )
-logger = logging.getLogger(filename)
+
 
 import weakref
 
@@ -29,7 +18,24 @@ from labelsig.utils.utils_annotation import write_annotation, load_annotation
 from labelsig.utils.utils_comtrade import get_info_comtrade
 from labelsig.utils.utils_general import get_annotation_ranges, get_sorted_unique_file_basenames, get_parent_directory
 from labelsig.widget.CountdownWarningView import WarningDialog
-from labelsig.widget.LabelManagementView import LabelManagementDialog
+from labelsig.widget.LabelManagementView import MultiLabelManagementDialog
+
+filename = os.path.splitext(os.path.basename(__file__))[0]
+
+if not logging.getLogger().hasHandlers():  # 检查是否已配置
+    path_project = get_parent_directory(levels_up=1)
+    path_log_dir = os.path.join(path_project, 'log')
+    # 检查日志目录是否存在，如果不存在则创建
+    if not os.path.exists(path_log_dir):
+        os.makedirs(path_log_dir)
+
+    path_log = os.path.join(path_log_dir, f"{filename}.log")
+    logging.basicConfig(level=logging.DEBUG,
+                        filename=f"{path_log}",
+                        filemode='a',
+                        format='%(asctime)s - %(levelname)s - [%(name)s] %(message)s')
+
+logger = logging.getLogger(filename)
 
 import numpy as np
 
@@ -119,7 +125,7 @@ class SignalAnnotationView(QGraphicsView):
                 if 1 not in annotation_ranges.keys():
                     num_semantic_categories-=1
                     continue
-                print(annotation_ranges)
+
                 value = next((key for key, value in self.selected_annotation['Semantic-Category'].items() if value['label'] == semantic_category), None)
                 ranges=annotation_ranges[1]
                 for start_idx, end_idx in ranges:
@@ -179,7 +185,7 @@ class SignalAnnotationView(QGraphicsView):
         self.annotation_items.append(weakref.ref(text_item))
 
     def update_annotation(self, start_idx, end_idx, category_label, category_value, category_color):
-        # print(start_idx, end_idx, category_label, category_value, category_color)
+
         if category_label and category_color is not None:
             signal_length = len(self.signal_data)
             # 设置或更新“Semantic-Category”的字典
@@ -385,7 +391,7 @@ class SignalAnnotationView(QGraphicsView):
             self.show_selected_annotation_multi_category()
 
     def open_label_selection_dialog(self):
-        annotationDialog = LabelManagementDialog()
+        annotationDialog = MultiLabelManagementDialog()
         annotationDialog.mySignal.connect(self._get_annotation_label)
         annotationDialog.exec_()
 
@@ -573,7 +579,9 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
         self.set_button_style(self.button_annotate, True)
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
-        self.selected_channel = self.channel_list_widget.currentItem().text()
+        # 获取当前选中的项
+        full_text = self.channel_list_widget.currentItem().text()
+        self.selected_channel = full_text.split('. ', 1)[1]  # 获取序号后的文本部分
         self.selected_comtrade_info["selected_channel"]=self.selected_channel
         self.selected_comtrade_info["selected_comtrade_filename"]=self.selected_comtrade_filename
 
@@ -587,15 +595,19 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
         listwidget.clear()
         # 将高亮项转换为集合以提高查找速度
         highlighted_set = set(highlighted_items)
-        # 遍历项目列表，添加到小部件中
-        for item in item_list:
-            item_widget = QListWidgetItem(item)
+        # 对项目列表进行排序
+        sorted_item_list = sorted(item_list)
+
+        # 遍历排序后的项目列表，添加到小部件中，并为每个项目添加序号
+        for index, item in enumerate(sorted_item_list, start=1):
+            # 为每个项目加上序号
+            item_with_index = f"{index}. {item}"
+            item_widget = QListWidgetItem(item_with_index)
             # 如果该项在高亮项集合中，则设置背景颜色
             if item in highlighted_set:
                 item_widget.setBackground(QColor("#cfd8e3"))
             listwidget.addItem(item_widget)
-        # 对小部件中的项目进行排序
-        listwidget.sortItems()
+
 
     def closeEvent(self, event):
         self.deleteLater()
@@ -605,7 +617,11 @@ class FaultIdentificationPage(QMainWindow, Ui_main):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
             self.signal_view=None
-        self.selected_comtrade_filename = self.comtrade_list_widget.currentItem().text()
+        # 获取当前选中的项
+        full_text = self.comtrade_list_widget.currentItem().text()
+        # 去掉前面的序号部分，假设格式为 "1. 文件名" 或 "2. 文件名"
+        # 以 '. ' 分隔，获取序号后的文件名部分
+        self.selected_comtrade_filename = full_text.split('. ', 1)[1]  # 获取序号后的文本部分
         self.selected_comtrade_info=get_info_comtrade(path_raw=self.path_raw,path_ann=self.path_ann,selected_comtrade_filename=self.selected_comtrade_filename)
 
         annotation = load_annotation(os.path.join(self.path_ann, self.selected_comtrade_filename))
