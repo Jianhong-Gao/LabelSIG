@@ -1,17 +1,6 @@
 import logging
 import os
-filename = os.path.splitext(os.path.basename(__file__))[0]
-if not logging.getLogger().hasHandlers():  # 检查是否已配置
-    logging.basicConfig(
-        level=logging.INFO,  # 辅助程序可以设置不同的日志级别
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        handlers=[
-            logging.FileHandler(f"{filename}.log"),
-            logging.StreamHandler()
-        ]
-    )
-logger = logging.getLogger(filename)
+
 
 import numpy as np
 from PyQt5.QtCore import Qt, QRectF, QPointF, QLineF
@@ -30,8 +19,24 @@ from labelsig.utils.utils_annotation import write_annotation, load_annotation
 from labelsig.utils.utils_comtrade import get_info_comtrade
 from labelsig.utils.utils_general import get_sorted_unique_file_basenames, get_parent_directory, differentiate_voltage
 from labelsig.widget.CountdownWarningView import WarningDialog
-from labelsig.widget.LabelManagementView import LabelManagementDialog
 
+
+filename = os.path.splitext(os.path.basename(__file__))[0]
+if not logging.getLogger().hasHandlers():  # 检查是否已配置
+    path_project = get_parent_directory(levels_up=1)
+    path_log_dir = os.path.join(path_project, 'log')
+
+    # 检查日志目录是否存在，如果不存在则创建
+    if not os.path.exists(path_log_dir):
+        os.makedirs(path_log_dir)
+
+    path_log = os.path.join(path_log_dir, f"{filename}.log")
+    logging.basicConfig(level=logging.DEBUG,
+                        filename=f"{path_log}",
+                        filemode='a',
+                        format='%(asctime)s - %(levelname)s - [%(name)s] %(message)s')
+
+logger = logging.getLogger(filename)
 
 class SignalAnnotationView(QGraphicsView):
 
@@ -271,10 +276,7 @@ class SignalAnnotationView(QGraphicsView):
 
 
 
-    def open_label_selection_dialog(self):
-        annotationDialog = LabelManagementDialog()
-        annotationDialog.mySignal.connect(self._get_annotation_label)
-        annotationDialog.exec_()
+
 
     def _get_annotation_label(self, semantic_category=None, value_semantic_category=None, color_semantic_category=None):
         self.current_semantic_category = semantic_category
@@ -420,9 +422,10 @@ class FaultLocalizationPage(QMainWindow, Ui_main):
                                     fault_lines=[],
                                     sound_lines=[],
                                     ambiguous_lines=[]):
+        # 清空列表小部件
         listwidget.clear()
 
-        # Define a color map
+        # 定义颜色映射
         color_map = {
             'reference_signal': QColor("#DDDDBB"),
             'fault_lines': QColor("#CD5C5C"),
@@ -430,9 +433,16 @@ class FaultLocalizationPage(QMainWindow, Ui_main):
             'ambiguous_lines': QColor("#A9A9A9")
         }
 
-        for item in item_list:
-            item_widget = QListWidgetItem(item)
-            # Set background color based on item list
+        # 对项目列表进行排序
+        sorted_item_list = sorted(item_list)
+
+        # 遍历排序后的项目列表并添加序号
+        for index, item in enumerate(sorted_item_list, start=1):
+            # 为每个项目加上序号
+            item_with_index = f"{index}. {item}"
+            item_widget = QListWidgetItem(item_with_index)
+
+            # 根据项目类型设置背景颜色
             if item in reference_signal:
                 item_widget.setBackground(color_map['reference_signal'])
             elif item in fault_lines:
@@ -441,8 +451,11 @@ class FaultLocalizationPage(QMainWindow, Ui_main):
                 item_widget.setBackground(color_map['sound_lines'])
             elif item in ambiguous_lines:
                 item_widget.setBackground(color_map['ambiguous_lines'])
+
+            # 将项目添加到列表中
             listwidget.addItem(item_widget)
 
+        # 对小部件中的项目进行排序
         listwidget.sortItems()
 
     def prompt_channel_marking(self, channel_name):
@@ -587,7 +600,9 @@ class FaultLocalizationPage(QMainWindow, Ui_main):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
             self.signal_view=None
-        self.selected_channel = self.channel_list_widget.currentItem().text()
+        # 获取当前选中的项
+        full_text = self.channel_list_widget.currentItem().text()
+        self.selected_channel = full_text.split('. ', 1)[1]  # 获取序号后的文本部分
         self.selected_comtrade_info["selected_channel"]=self.selected_channel
         self.selected_comtrade_info["selected_comtrade_filename"]=self.selected_comtrade_filename
 
@@ -601,21 +616,29 @@ class FaultLocalizationPage(QMainWindow, Ui_main):
         listwidget.clear()
         # 将高亮项转换为集合以提高查找速度
         highlighted_set = set(highlighted_items)
-        # 遍历项目列表，添加到小部件中
-        for item in item_list:
-            item_widget = QListWidgetItem(item)
+        # 对项目列表进行排序
+        sorted_item_list = sorted(item_list)
+
+        # 遍历排序后的项目列表，添加到小部件中，并为每个项目添加序号
+        for index, item in enumerate(sorted_item_list, start=1):
+            # 为每个项目加上序号
+            item_with_index = f"{index}. {item}"
+            item_widget = QListWidgetItem(item_with_index)
             # 如果该项在高亮项集合中，则设置背景颜色
             if item in highlighted_set:
                 item_widget.setBackground(QColor("#cfd8e3"))
             listwidget.addItem(item_widget)
-        # 对小部件中的项目进行排序
-        listwidget.sortItems()
+
 
     def closeEvent(self, event):
         self.deleteLater()
 
     def refresh_channel_list(self):
-        self.selected_comtrade_filename = self.comtrade_list_widget.currentItem().text()
+        # 获取当前选中的项
+        full_text = self.comtrade_list_widget.currentItem().text()
+        # 去掉前面的序号部分，假设格式为 "1. 文件名" 或 "2. 文件名"
+        # 以 '. ' 分隔，获取序号后的文件名部分
+        self.selected_comtrade_filename = full_text.split('. ', 1)[1]  # 获取序号后的文本部分
         self.selected_comtrade_info = get_info_comtrade(
             path_raw=self.path_raw,
             path_ann=self.path_ann,

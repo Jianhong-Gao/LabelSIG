@@ -72,13 +72,13 @@ class EditLabelDialog(QDialog):
             self.label_info[i] = {"name": name, "color": color, "value": value}
         return self.label_info
 
-class LabelManagementDialog(QDialog, Ui_input_dialog):
+class MultiLabelManagementDialog(QDialog, Ui_input_dialog):
     _startPos = None
     _endPos = None
     _isTracking = False
     mySignal = pyqtSignal(str,int,str)
     def __init__(self,class_label =['标签1', '标签2', '标签3']):
-        super(LabelManagementDialog, self).__init__()
+        super(MultiLabelManagementDialog, self).__init__()
         self.setupUi(self)
         self.root_project = get_parent_directory(levels_up=1)
 
@@ -86,7 +86,7 @@ class LabelManagementDialog(QDialog, Ui_input_dialog):
         self.path_ann = os.path.join(self.root_project,'tmp', 'ann')
         self.path_config = os.path.join(self.root_project, 'config')
         self.path_resource=os.path.join(self.root_project,'resource')
-        self.annotation_config = read_or_create_file(self.path_config, "Annotation.config")
+        self.annotation_config = read_or_create_file(self.path_config, "Annotation_multilabel.config")
         self.class_label = self.annotation_config.keys()
 
 
@@ -128,7 +128,7 @@ class LabelManagementDialog(QDialog, Ui_input_dialog):
                               updated_label_info}
             self.config_annotation = updated_config
 
-            write_dict_to_file(dictionary=self.config_annotation, file_path=self.path_config + '/Annotation.config')
+            write_dict_to_file(dictionary=self.config_annotation, file_path=self.path_config + '/Annotation_multilabel.config')
             self.update_widget()
 
     def send_label_name(self,semantic_category = None,value_semantic_category= None,color_semantic_category= None):
@@ -148,7 +148,7 @@ class LabelManagementDialog(QDialog, Ui_input_dialog):
             # 更新配置字典并写入文件
             self.config_annotation[name_label] = {'color': hex_color, 'value': value}
             write_dict_to_file(dictionary=self.config_annotation,
-                               file_path=os.path.join(self.path_config, 'Annotation.config'))
+                               file_path=os.path.join(self.path_config, 'Annotation_multilabel.config'))
             self.update_widget()  # 更新界面
         # 发送标签名并关闭对话框
         self.semantic_category = name_label
@@ -168,12 +168,12 @@ class LabelManagementDialog(QDialog, Ui_input_dialog):
         label_name = self.listWidget.currentItem().text()
         if label_name!='':
             del self.config_annotation[label_name]
-            write_dict_to_file(dictionary=self.config_annotation, file_path=self.path_config + '/Annotation.config')
+            write_dict_to_file(dictionary=self.config_annotation, file_path=os.path.join(self.path_config,"Annotation_multilabel.config"))
             self.update_widget()
         else:
             self.lineEdit.setPlaceholderText("未选中需要删除的标签")
     def update_widget(self):
-        self.config_annotation = read_or_create_file(self.path_config, "Annotation.config")
+        self.config_annotation = read_or_create_file(self.path_config, "Annotation_multilabel.config")
         category_name=list(self.config_annotation.keys())
         self.listWidget.clear()
         self.listWidget.addItems(category_name)
@@ -192,3 +192,122 @@ class LabelManagementDialog(QDialog, Ui_input_dialog):
             self._startPos = None
             self._endPos = None
 
+class SingleLabelManagementDialog(QDialog, Ui_input_dialog):
+    _startPos = None
+    _endPos = None
+    _isTracking = False
+    mySignal = pyqtSignal(str,int,str)
+    def __init__(self,class_label =['标签1', '标签2', '标签3']):
+        super(SingleLabelManagementDialog, self).__init__()
+        self.setupUi(self)
+        self.root_project = get_parent_directory(levels_up=1)
+
+        self.path_raw = os.path.join(self.root_project,'tmp', 'raw')
+        self.path_ann = os.path.join(self.root_project,'tmp', 'ann')
+        self.path_config = os.path.join(self.root_project, 'config')
+        self.path_resource=os.path.join(self.root_project,'resource')
+        self.annotation_config = read_or_create_file(self.path_config, "Annotation_singlelabel.config")
+        self.class_label = self.annotation_config.keys()
+
+
+        self.setGeometry(155, 40, 349, 250)
+        self.setWindowFlags(Qt.FramelessWindowHint)  # 无边框
+        self.initUI()
+        self.set_button_image()
+        self.set_qlabel_image()
+
+    # 定义一个函数存放图片给label
+    def set_button_image(self):
+        self.button_close.setIcon(QIcon(os.path.join(self.path_resource,'close.png')))
+        self.button_max.setIcon(QIcon(os.path.join(self.path_resource,'max.png')))
+        self.button_min.setIcon(QIcon(os.path.join(self.path_resource,'min.png')))
+
+    def set_qlabel_image(self):
+        pixmap = QPixmap(os.path.join(self.path_resource,'WindowIcon.png')).scaled(self.label_logo.size(), Qt.IgnoreAspectRatio)
+        self.label_logo.setPixmap(pixmap)
+
+    def initUI(self):
+        self.list_info=[]
+
+        self.button_confirm.clicked.connect(self.confirm)
+        self.button_cancel.clicked.connect(self.cancel)
+        self.button_delete.clicked.connect(self.delete_label)
+        self.listWidget.itemClicked.connect(self.update_data)
+        self.button_close.clicked.connect(self.close)
+        self.button_edit.clicked.connect(self.edit)
+        self.update_widget()
+
+
+    def edit(self):
+        label_info = [{"name": k, "color": v["color"], "value": v["value"]} for k, v in self.config_annotation.items()]
+        edit_dialog = EditLabelDialog(label_info, self)
+        result = edit_dialog.exec_()
+        if result == QDialog.Accepted:
+            updated_label_info = edit_dialog.get_updated_label_info()
+            updated_config = {info["name"]: {"color": info["color"], "value": info["value"]} for info in
+                              updated_label_info}
+            self.config_annotation = updated_config
+
+            write_dict_to_file(dictionary=self.config_annotation, file_path= os.path.join(self.path_config,"Annotation_singlelabel.config"))
+            self.update_widget()
+
+    def send_label_name(self,semantic_category = None,value_semantic_category= None,color_semantic_category= None):
+        self.mySignal.emit(semantic_category,value_semantic_category,color_semantic_category) # 发射信号
+
+    def confirm(self):
+        name_label = self.lineEdit.text().strip()  # 使用strip()去除可能的首尾空格
+        if not name_label:  # 直接检查字符串是否为空
+            self.lineEdit.setPlaceholderText("请选择或输入标签")
+            return  # 如果没有输入，则提前退出函数
+        if name_label not in self.config_annotation:
+            # 获取颜色，如果用户没有选择颜色则生成一个随机颜色
+            color = QColorDialog.getColor()
+            hex_color = color.name() if color.isValid() else generate_random_color(self.config_annotation)
+            # 生成随机值，无需检查ok1，因为已经确保会有一个有效的hex_color
+            value = generate_random_value(self.config_annotation)
+            # 更新配置字典并写入文件
+            self.config_annotation[name_label] = {'color': hex_color, 'value': value}
+            write_dict_to_file(dictionary=self.config_annotation,
+                               file_path=os.path.join(self.path_config, 'Annotation_multilabel.config'))
+            self.update_widget()  # 更新界面
+        # 发送标签名并关闭对话框
+        self.semantic_category = name_label
+        self.value_semantic_category = self.config_annotation[name_label]["value"]
+        self.color_semantic_category = self.config_annotation[name_label]["color"]
+
+
+        self.send_label_name(self.semantic_category,self.value_semantic_category,self.color_semantic_category)
+        self.close()
+
+    def cancel(self):
+        self.send_label_name()
+        self.close()
+    def update_data(self):
+        self.lineEdit.setText(self.listWidget.currentItem().text())
+    def delete_label(self):
+        label_name = self.listWidget.currentItem().text()
+        if label_name!='':
+            del self.config_annotation[label_name]
+            write_dict_to_file(dictionary=self.config_annotation, file_path=self.path_config + '/Annotation_multilabel.config')
+            self.update_widget()
+        else:
+            self.lineEdit.setPlaceholderText("未选中需要删除的标签")
+    def update_widget(self):
+        self.config_annotation = read_or_create_file(self.path_config, "Annotation_multilabel.config")
+        category_name=list(self.config_annotation.keys())
+        self.listWidget.clear()
+        self.listWidget.addItems(category_name)
+    def mouseMoveEvent(self, e: QMouseEvent):  # 重写移动事件
+        self._endPos = e.pos() - self._startPos
+        self.move(self.pos() + self._endPos)
+
+    def mousePressEvent(self, e: QMouseEvent):
+        if e.button() == Qt.LeftButton:
+            self._isTracking = True
+            self._startPos = QPoint(e.x(), e.y())
+
+    def mouseReleaseEvent(self, e: QMouseEvent):
+        if e.button() == Qt.LeftButton:
+            self._isTracking = False
+            self._startPos = None
+            self._endPos = None

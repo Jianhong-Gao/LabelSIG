@@ -1,24 +1,11 @@
 import logging
 import os
-filename = os.path.splitext(os.path.basename(__file__))[0]
-if not logging.getLogger().hasHandlers():  # 检查是否已配置
-    logging.basicConfig(
-        level=logging.INFO,  # 辅助程序可以设置不同的日志级别
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        handlers=[
-            logging.FileHandler(f"{filename}.log"),
-            logging.StreamHandler()
-        ]
-    )
-logger = logging.getLogger(filename)
-
 import weakref
 
 import numpy as np
 from PyQt5.QtCore import Qt, QRectF, QPointF, QLineF
 from PyQt5.QtGui import QPen, QColor, QPainter, QIcon, QFont
-from PyQt5.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsLineItem, QDialog,QDesktopWidget,
+from PyQt5.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsLineItem, QDialog, QDesktopWidget,
                              QGraphicsRectItem, QApplication, QGraphicsSimpleTextItem, QMainWindow, QLabel,
                              QListWidgetItem
                              )
@@ -28,16 +15,31 @@ from labelsig.utils.utils_annotation import write_annotation, load_annotation
 from labelsig.utils.utils_comtrade import get_info_comtrade
 from labelsig.utils.utils_general import get_annotation_ranges, get_sorted_unique_file_basenames, get_parent_directory
 from labelsig.widget.CountdownWarningView import WarningDialog
-from labelsig.widget.LabelManagementView import LabelManagementDialog
+from labelsig.widget.LabelManagementView import SingleLabelManagementDialog
 
+filename = os.path.splitext(os.path.basename(__file__))[0]
+if not logging.getLogger().hasHandlers():  # 检查是否已配置
+    path_project = get_parent_directory(levels_up=1)
+    path_log_dir = os.path.join(path_project, 'log')
 
+    # 检查日志目录是否存在，如果不存在则创建
+    if not os.path.exists(path_log_dir):
+        os.makedirs(path_log_dir)
+
+    path_log = os.path.join(path_log_dir, f"{filename}.log")
+    logging.basicConfig(level=logging.DEBUG,
+                        filename=f"{path_log}",
+                        filemode='a',
+                        format='%(asctime)s - %(levelname)s - [%(name)s] %(message)s')
+
+logger = logging.getLogger(filename)
 
 
 class SignalAnnotationView(QGraphicsView):
 
     def __init__(self, parent=None, selected_comtrade_info=None):
         super(SignalAnnotationView, self).__init__(parent)
-        self.horizontal_scale_factor = 1/1.1  # Initial scale factor
+        self.horizontal_scale_factor = 1 / 1.1  # Initial scale factor
         self.margin_side = 50  # Space for both left and right margins
         self.margin_top = 10  # Space for x-axis
         self.margin_bottom = 50  # Space for x-axis
@@ -181,7 +183,6 @@ class SignalAnnotationView(QGraphicsView):
     def _draw_background_grid(self):
         grid_pen = QPen(QColor(200, 200, 200), 1, Qt.DotLine)
 
-
         grid_spacing_horizontal = 100 * self.horizontal_scale_factor  # 水平缩放
         grid_spacing_vertical = 100  # 垂直方向保持不变
 
@@ -220,7 +221,7 @@ class SignalAnnotationView(QGraphicsView):
 
         for i, pos in enumerate(tick_positions):
             # Calculate the time value for each tick
-            tick_time = i * tick_interval*1000
+            tick_time = i * tick_interval * 1000
             # Draw the tick line
             self._draw_line(
                 QLineF(pos, self.height() - self.margin_bottom, pos, self.height() - self.margin_bottom + tick_length),
@@ -283,7 +284,7 @@ class SignalAnnotationView(QGraphicsView):
 
     def _to_scene_y_coords(self, y):
         return self.margin_top + (1 - (y - self.min_y) / (self.max_y - self.min_y)) * (
-                    self.height() - self.margin_bottom - self.margin_top)
+                self.height() - self.margin_bottom - self.margin_top)
 
     def _get_clamped_x(self, x):
         total_width = (self.width() - self.margin_side * 2) * self.horizontal_scale_factor + self.margin_side * 2
@@ -338,7 +339,7 @@ class SignalAnnotationView(QGraphicsView):
             self.show_selected_annotation()
 
     def open_label_selection_dialog(self):
-        annotationDialog = LabelManagementDialog()
+        annotationDialog = SingleLabelManagementDialog()
         annotationDialog.mySignal.connect(self._get_annotation_label)
         annotationDialog.exec_()
 
@@ -476,7 +477,6 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.zoom_in()
 
-
     def zoom_out(self):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.zoom_out()
@@ -501,7 +501,9 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
             self.signal_view = None
-        self.selected_channel = self.channel_list_widget.currentItem().text()
+        # 获取当前选中的项
+        full_text = self.channel_list_widget.currentItem().text()
+        self.selected_channel = full_text.split('. ', 1)[1]  # 获取序号后的文本部分
         self.selected_comtrade_info["selected_channel"] = self.selected_channel
         self.selected_comtrade_info["selected_comtrade_filename"] = self.selected_comtrade_filename
 
@@ -515,15 +517,18 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         listwidget.clear()
         # 将高亮项转换为集合以提高查找速度
         highlighted_set = set(highlighted_items)
-        # 遍历项目列表，添加到小部件中
-        for item in item_list:
-            item_widget = QListWidgetItem(item)
+        # 对项目列表进行排序
+        sorted_item_list = sorted(item_list)
+
+        # 遍历排序后的项目列表，添加到小部件中，并为每个项目添加序号
+        for index, item in enumerate(sorted_item_list, start=1):
+            # 为每个项目加上序号
+            item_with_index = f"{index}. {item}"
+            item_widget = QListWidgetItem(item_with_index)
             # 如果该项在高亮项集合中，则设置背景颜色
             if item in highlighted_set:
                 item_widget.setBackground(QColor("#cfd8e3"))
             listwidget.addItem(item_widget)
-        # 对小部件中的项目进行排序
-        listwidget.sortItems()
 
     def closeEvent(self, event):
         self.deleteLater()
@@ -533,7 +538,12 @@ class FaultDetectionPage(QMainWindow, Ui_main):
         if hasattr(self, 'signal_view') and self.signal_view is not None:
             self.signal_view.close()
             self.signal_view = None
-        self.selected_comtrade_filename = self.comtrade_list_widget.currentItem().text()
+        # 获取当前选中的项
+        full_text = self.comtrade_list_widget.currentItem().text()
+        # 去掉前面的序号部分，假设格式为 "1. 文件名" 或 "2. 文件名"
+        # 以 '. ' 分隔，获取序号后的文件名部分
+        self.selected_comtrade_filename = full_text.split('. ', 1)[1]  # 获取序号后的文本部分
+
         self.selected_comtrade_info = get_info_comtrade(path_raw=self.path_raw, path_ann=self.path_ann,
                                                         selected_comtrade_filename=self.selected_comtrade_filename)
 

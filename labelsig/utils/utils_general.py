@@ -72,11 +72,27 @@ def find_subsequences(lst, value=1):
     return [item for item in output if item[0] != item[1]]
 
 
+import os
+import json
+
+
 def read_or_create_file(file_path, file_name):
     full_path = os.path.join(file_path, file_name)
+
+    # 如果文件存在，尝试读取
     if os.path.isfile(full_path):
-        with open(full_path, "r") as file:
-            return json.load(file)
+        try:
+            with open(full_path, "r") as file:
+                content = file.read().strip()  # 去掉多余的空格和换行符
+                if content:  # 检查文件是否为空
+                    return json.loads(content)  # 尝试解析 JSON
+                else:
+                    return {}  # 如果文件是空的，返回空字典
+        except json.JSONDecodeError:
+            print(f"Warning: {file_name} 不是有效的 JSON 文件。")
+            return {}  # 如果文件内容无效，返回空字典
+
+    # 如果文件不存在，创建一个新的空文件
     else:
         with open(full_path, "w") as file:
             json.dump({}, file)

@@ -16,19 +16,23 @@ from PyQt5.QtWidgets import (
     QPushButton, QLineEdit, QLabel, QCheckBox, QRadioButton, QWidget,
     QHBoxLayout, QSizePolicy, QToolTip, QMessageBox, QHeaderView
 )
-
+from labelsig.utils import get_parent_directory
 filename = os.path.splitext(os.path.basename(__file__))[0]
 if not logging.getLogger().hasHandlers():  # 检查是否已配置
-    logging.basicConfig(
-        level=logging.INFO,  # 辅助程序可以设置不同的日志级别
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        handlers=[
-            logging.FileHandler(f"{filename}.log"),
-            logging.StreamHandler()
-        ]
-    )
+    path_project = get_parent_directory(levels_up=1)
+    path_log_dir = os.path.join(path_project, 'log')
+    # 检查日志目录是否存在，如果不存在则创建
+    if not os.path.exists(path_log_dir):
+        os.makedirs(path_log_dir)
+
+    path_log = os.path.join(path_log_dir, f"{filename}.log")
+    logging.basicConfig(level=logging.DEBUG,
+                        filename=f"{path_log}",
+                        filemode='a',
+                        format='%(asctime)s - %(levelname)s - [%(name)s] %(message)s')
 logger = logging.getLogger(filename)
+
+
 
 from labelsig.ui_generated.ui_main_view import Ui_MainWindow
 from labelsig.utils.utils_annotation import write_annotation, load_annotation, get_annotation_info
